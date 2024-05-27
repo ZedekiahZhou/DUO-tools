@@ -65,5 +65,5 @@ if __name__ == "__main__":
     with open(options.output, "w") as fout:
         for key, values in output.items():
             ID = key[0] + "_" + str(key[1]) + "_" + key[2]
-            fout.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(key[0], key[1]-1, key[1], ID, values["Counts"], key[2], values["Ref_base"], values["Counts"]/total*1000000))
+            fout.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(key[0], key[1]-1, key[1], ID, values["Counts"], key[2], values["Ref_base"], round(values["Counts"]/total*1000000, 3)))
         

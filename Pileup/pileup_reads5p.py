@@ -2,6 +2,7 @@
 
 from Bio import SeqIO
 import pandas as pd
+import polars as pl
 import argparse
 import pysam
 from Bio.Seq import reverse_complement
@@ -56,13 +57,9 @@ if __name__ == "__main__":
             pos = int(pos)
             ID = (chr, pos, strand)
 
-            output[ID] = {}
-            output[ID]["Ref_base"] = base
-            output[ID]["A"] = 0
-            output[ID]["T"] = 0
-            output[ID]["C"] = 0
-            output[ID]["G"] = 0
-            output[ID]["n_raw"] = 0
+            output[ID] = {"Chr": chr, "Pos": pos, "Strand": strand, "Ref_base": base, "Counts": line[4], "TPM": line[7], 
+                          "geneID": line[11], "txID": line[12], "txBiotype": line[16], "Dist": line[18],
+                          "A": 0, "T": 0, "C": 0, "G": 0}
     
     ## find the position of next A 
     with open(options.fTSS, "r") as fTSS:
@@ -136,7 +133,6 @@ if __name__ == "__main__":
                     ID = (chr, pos, strand)
 
                     if ID in output and query_base in ("A", "T", "C", "G"):
-                        output[ID]["n_raw"] += 1
                         if A_counts <= options.max_allowed_As: # only count signal reads (un-converted As < max_allowed_As)
                             output[ID][query_base] += 1
 
@@ -157,7 +153,5 @@ if __name__ == "__main__":
                                         if next_query_base in ("A", "T", "C", "G"):
                                             output[ID]["Next_pos_"+next_query_base] += 1
                     
-
-df = pd.DataFrame.from_dict(output, orient='index')
-df.to_csv(options.output, sep='\t')
-        
+df = pl.from_pandas(pd.DataFrame.from_dict(output, orient='index'))
+df.write_csv(options.output, separator='\t')
