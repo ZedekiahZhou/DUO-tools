@@ -3,8 +3,7 @@
 from Bio import SeqIO
 import pandas as pd
 import polars as pl
-import argparse
-import pysam
+import argparse, time, pysam
 from Bio.Seq import reverse_complement
 
 def get_refer_base(key):
@@ -40,12 +39,14 @@ if __name__ == "__main__":
 
     # Step1: Init
     ## parse reference
+    print("------ [%s] Loading genome ..." % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
     reference_genome = {}
     for reference in options.references.split(","):
         for seq in SeqIO.parse(reference,"fasta"):
             reference_genome[seq.id] = str(seq.seq).upper()
 
     ## init site dict
+    print("------ [%s] Initializing dict ..." % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
     output = {}
     with open(options.fTSS, "r") as fTSS:
         for line in fTSS.readlines():
@@ -62,6 +63,7 @@ if __name__ == "__main__":
                           "A": 0, "T": 0, "C": 0, "G": 0}
     
     ## find the position of next A 
+    print("------ [%s] Finding next As ..." % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
     with open(options.fTSS, "r") as fTSS:
         for line in fTSS.readlines():
             line = line.strip().split("\t")
@@ -108,6 +110,7 @@ if __name__ == "__main__":
             output[ID]["Next_pos"] = lnext
 
     # Step II: Pileup 
+    print("------ [%s] Pileup 5p ends of reads ..." % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
     for fbam in options.fbams.split(","):
         with pysam.AlignmentFile(fbam, "rb") as input_BAM:
             # iterate by reads, pileup 5' end

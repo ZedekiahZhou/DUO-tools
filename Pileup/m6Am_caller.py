@@ -1,7 +1,9 @@
 import polars as pl
 from scipy import stats
 import argparse
+from statsmodels.stats.multitest import multipletests
 
+# args
 parser = argparse.ArgumentParser(description="call m6Am sites from AGcounts file")
 parser.add_argument("-i", "--input", type=str, required=True, help="AGcounts file from pileup_reads5p.py")
 parser.add_argument("-o", "--output", type=str, required=True, help="output file name")
@@ -13,11 +15,20 @@ parser.add_argument("--AG_Ratio", type=float, default=0.8,
                     help="minimum ratio of (A+G reads)/total in this sites, default is 0.8")
 args = parser.parse_args()
 
+# input and output
+df=pl.read_csv(args.input, separator="\t")
 frawout=args.input.replace("_AGcount.tsv", "") + "_m6Am_sites_raw.tsv"
 
 
-df=pl.read_csv(args.input, separator="\t")
+# binomtest function
+def test_sites(x):
+    if x["AG_cov"] == 0:
+        return 1
+    else:
+        return stats.binomtest(x["A"], n=x["AG_cov"], p=x["Ctrl_Ratio"], alternative="greater").pvalue
 
+
+# perform test
 df = df.with_columns(
     (pl.col("A") + pl.col("T") + pl.col("C") + pl.col("G")).alias("Signal_cov"),  # signal reads (with unconverted As <= 3?)
     (pl.col("A") + pl.col("G")).alias("AG_cov"),  # A + G coverage (signal)
@@ -35,15 +46,16 @@ df = df.with_columns(
     .round(3).alias("m6Am_Ratio")  # m6Am ratio
 ).with_columns(
     pl.struct(["A", "AG_cov", "Ctrl_Ratio"])
-    .map_elements(lambda x: stats.binom_test(x["A"], n=x["AG_cov"], p=x["Ctrl_Ratio"], alternative="greater"), return_dtype=pl.Float64)
+    .map_elements(test_sites, return_dtype=pl.Float64)
     .alias("Pvalue")  # binom_test p value
 ).with_columns(
     pl.col("Pvalue")
-    .map_batches(lambda x: stats.false_discovery_control(x, method="bh"))
+    .map_batches(lambda x: multipletests(x, method="fdr_bh")[1])
     .alias("FDR")  # BH adjusted
 )
 
 df.write_csv(frawout, separator="\t")
+
 
 # filtering
 used_col = ['Chr', 'Pos', 'Strand', 'A', 'AG_cov', 'm6Am_Ratio', 'Pvalue', 'FDR', 
