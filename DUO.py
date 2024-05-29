@@ -53,10 +53,11 @@ group_m6Am.add_argument("--Signal_Ratio", type=float, default=0.8,
                     help="[Both] minimum ratio of signal reads (eg. reads with unconverted As less than 3), default is 0.8")
 group_m6Am.add_argument("--AG_Ratio", type=float, default=0.8, 
                     help="[Both] minimum ratio of (A+G reads)/total in this sites, default is 0.8")
-group_m6Am.add_argument("-ta", "--tssanno", help="[m6Am] Annotation of TSS range")
+group_m6Am.add_argument("-ta", "--tssanno", type=str, help="[m6Am] Annotation of TSS range")
 group_m6Am.add_argument("--tpm", type=float, default=1.0, help="[m6Am] minimum TPM value for TSS, default is 1.0")
 group_m6Am.add_argument("--absDist", type=int, default=1000, help="[m6Am] maximum absolute distance to any annotated TSS from GTF file, default is 1000")
 group_m6Am.add_argument("--zscore", type=float, default=1.0, help="[m6Am] minimum Z-score (calculated within a gene) for TSS, default is 1.0")
+group_m6Am.add_argument("-ba", "--baseanno", type=str, help="[m6A] Annotations at single-base resolution")
 
 args = parser.parse_args()
 
@@ -166,19 +167,20 @@ def fun_m6Am(bam, prx, args):
     print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
     if not args.test: subprocess.call(cmd, shell=True)
     
-    # pile ATCG
-    fAGcount=site_dir + prx + "_AGcount.tsv"
-    cmd="python " + args.DUOdir + "/Call_m6Am/pileup_reads5p.py -r " + args.reference2 + " -l " + ftss_clean + " -o " + fAGcount + " -b " + bam
-    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-    if not args.test: subprocess.call(cmd, shell=True)
+    if args.mode == "m6Am":
+        # pile ATCG
+        fAGcount=site_dir + prx + "_AGcount.tsv"
+        cmd="python " + args.DUOdir + "/Call_m6Am/pileup_reads5p.py -r " + args.reference2 + " -l " + ftss_clean + " -o " + fAGcount + " -b " + bam
+        print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
+        if not args.test: subprocess.call(cmd, shell=True)
 
-    # call m6Am
-    fm6Am=site_dir + prx + "_m6Am_sites.tsv"
-    cmd="python " + args.DUOdir + "/Call_m6Am/m6Am_caller.py -i " + fAGcount + " -o " + fm6Am + \
-        " --Acov " + str(args.Acov) + " --FDR " + str(args.FDR) + \
-        " --Signal_Ratio " + str(args.Signal_Ratio) + " --AG_Ratio " + str(args.AG_Ratio)
-    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-    if not args.test: subprocess.call(cmd, shell=True)
+        # call m6Am
+        fm6Am=site_dir + prx + "_m6Am_sites.tsv"
+        cmd="python " + args.DUOdir + "/Call_m6Am/m6Am_caller.py -i " + fAGcount + " -o " + fm6Am + \
+            " --Acov " + str(args.Acov) + " --FDR " + str(args.FDR) + \
+            " --Signal_Ratio " + str(args.Signal_Ratio) + " --AG_Ratio " + str(args.AG_Ratio)
+        print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
+        if not args.test: subprocess.call(cmd, shell=True)
 
 
 def fun_m6A(bam, prx, args):
@@ -231,12 +233,11 @@ def main(args):
     os.makedirs(args.outdir+"/intermediate/", exist_ok=True)
 
     if args.module is None:
-        module = ["preprocessing", "mapping"]
-        if not args.untreated:
-            if args.mode == "m6Am":
-                module += ["call_m6Am", "QC"]
-            else:
-                module += ["call_m6A", "QC"]
+        module = ["preprocessing", "mapping", "QC"]
+        if args.mode == "m6Am":
+            module += ["call_m6Am"]
+        elif not args.untreated:
+            module += ["call_m6A"]
     else:
         module = args.module.split(",")
         if args.mode == "m6Am":
@@ -286,10 +287,23 @@ def main(args):
         fun_m6Am(bam, prx, args)
 
     if "call_m6A" in module:
-        pass
+        if prx is None:  # begin with m6A calling step
+            if args.bam is None:
+                raise ValueError("Bam files must be provided if beginning with the m6A calling step!")
+            else:
+                if args.prx is None:
+                    prx=re.match("(.*/)?([^/]+)_merged.sorted.bam$", args.bam).group(2)
+                else:
+                    prx=args.prx
+            bam=args.bam
+        else:
+            bam=args.outdir + "/03_Sites/" + prx + "_merged.sorted.bam"
+        fun_m6A(bam, prx, args)
     
     if "QC" in module:
         pass
+
+    print("\n[%s] Done! ========" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
 
 
 if __name__ == '__main__':
