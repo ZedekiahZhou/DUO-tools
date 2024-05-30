@@ -117,21 +117,27 @@ def run_command(total_mpi, Threads):
     print("**************Combing A-to-G conversion files******************")
     pd_CR = pd.DataFrame()
     final_CR = outputprefix + ".totalCR.txt"
+
     for CR_c in chr_list:
         chr_x = CR_c.split("_AG_converted")[0]
         file = outputprefix+".CR.txt."+chr_x
         CR1 = pd.read_csv(file, sep="\t", names=['SA', 'Totalcovered_reads', 'Remained A reads', 'Non-A-to-G ratio','Mapped_area'])
+
         if CR1.shape[0] > 0:  # CR.txt files for some segment may be NULL!!
-            CR2 = CR1[~CR1['SA'].isin(['#ALL', '#90%', '#75%', '#50%', '#25%', '#10%', '#Median', '#Mean'])][['SA', 'Non-A-to-G ratio']]
-            xx_median = CR1[CR1['SA'] == '#Median']['Totalcovered_reads'].values.tolist()
-            pd_median = pd.DataFrame({'SA': ["#Median_"+chr_x], 'Non-A-to-G ratio': xx_median})
+            CR2 = CR1[~CR1['SA'].isin(['#90%', '#75%', '#50%', '#25%', '#10%', '#Median', '#Mean'])]
+            CR2.iloc[0, 0] += "_" + chr_x
+            pd_CR = pd.concat([pd_CR, CR2])
 
-            pd_CR_t = pd.concat([pd_median,CR2])
-            pd_CR_t['A-to-G_ratio'] = 1 - pd_CR_t ['Non-A-to-G ratio']
-            pd_x1 = pd_CR_t[['SA', 'A-to-G_ratio']]
-
-            pd_CR = pd.concat([pd_CR, pd_x1])
+    # whole transcriptome
+    pd_chr = pd_CR[pd_CR.SA.str.contains("#ALL_", case=True)]
+    pd_tmp = pd_chr.sum().to_frame().T
+    pd_tmp["SA"] = "#ALL_genome"
+    pd_tmp["Non-A-to-G ratio"] = pd_tmp["Remained A reads"]/pd_tmp["Totalcovered_reads"]
+    pd_CR = pd.concat([pd_tmp, pd_CR])
+    pd_CR['A-to-G_ratio'] = 1 - pd_CR['Non-A-to-G ratio']
+    pd_CR = pd_CR[['SA', 'A-to-G_ratio', 'Totalcovered_reads', 'Remained A reads', 'Mapped_area']]
     pd_CR.to_csv(final_CR,sep="\t",index=False)
+
 
     # combine m6A sites
     print("cat " + outputprefix + ".callsites" + "*." + str(Acutoffs) + ".txt > " + final_sites1)

@@ -167,7 +167,7 @@ def fun_m6Am(bam, prx, args):
     print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
     if not args.test: subprocess.call(cmd, shell=True)
     
-    if args.mode == "m6Am":
+    if not args.untreated:
         # pile ATCG
         fAGcount=site_dir + prx + "_AGcount.tsv"
         cmd="python " + args.DUOdir + "/Call_m6Am/pileup_reads5p.py -r " + args.reference2 + " -l " + ftss_clean + " -o " + fAGcount + " -b " + bam
