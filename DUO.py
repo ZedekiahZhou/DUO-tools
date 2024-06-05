@@ -46,51 +46,58 @@ group_mapping.add_argument("-a", "--anno", nargs="?", help="Annotation file with
 group_m6Am = parser.add_argument_group("Call m6Am or m6A")
 group_m6Am.add_argument("-ds", "--ds2N", type=int, default=None, help="[Both] Downsample the merged sorted bam files to N reads, default is no downsample.")
 
-group_m6Am.add_argument("--cov", type=int, default=15, help='[Both] minimum A+G coverage for TSS, default is 15')
-group_m6Am.add_argument("--Acov", type=int, default=5, help='[Both] minimum A coverage for m6Am sites, default is 5')
+group_m6Am.add_argument("-c", "--cov", type=int, default=15, help='[Both] minimum A+G coverage for TSS, default is 15')
+group_m6Am.add_argument("-C", "--Acov", type=int, default=5, help='[Both] minimum A coverage for m6Am sites, default is 5')
 group_m6Am.add_argument("--FDR", type=float, default=0.001, help="[Both] FDR cutoff, default is 0.001")
-group_m6Am.add_argument("--Signal_Ratio", type=float, default=0.8, 
+group_m6Am.add_argument("-s", "--Signal_Ratio", type=float, default=0.8, 
                     help="[Both] minimum ratio of signal reads (eg. reads with unconverted As less than 3), default is 0.8")
-group_m6Am.add_argument("--AG_Ratio", type=float, default=0.8, 
+group_m6Am.add_argument("-R", "--AG_Ratio", type=float, default=0.8, 
                     help="[Both] minimum ratio of (A+G reads)/total in this sites, default is 0.8")
 group_m6Am.add_argument("-ta", "--tssanno", type=str, help="[m6Am] Annotation of TSS range")
-group_m6Am.add_argument("--tpm", type=float, default=1.0, help="[m6Am] minimum TPM value for TSS, default is 1.0")
+group_m6Am.add_argument("-tpm", type=float, default=1.0, help="[m6Am] minimum TPM value for TSS, default is 1.0")
 group_m6Am.add_argument("--absDist", type=int, default=1000, help="[m6Am] maximum absolute distance to any annotated TSS from GTF file, default is 1000")
 group_m6Am.add_argument("--zscore", type=float, default=1.0, help="[m6Am] minimum Z-score (calculated within a gene) for TSS, default is 1.0")
 group_m6Am.add_argument("-ba", "--baseanno", type=str, help="[m6A] Annotations at single-base resolution")
+group_m6Am.add_argument("-r", "--methyl_Ratio", type = float, default=0.1, help="[m6A] minimum m6A level")
+
+group_QC = parser.add_argument_group("QC")
+group_QC.add_argument("--gtf", type=str, help="GTF file, chromosome name with suffix '_AG_converted'")
+group_mapping.add_argument("--gtf2", type=str, help="GTF file")
+group_mapping.add_argument("--mPRdir", type=str, help = "Directory of metaPlotR")
+group_mapping.add_argument("--mPRanno", type=str, help="Directory and prefix of metaPlotR annotations")
 
 args = parser.parse_args()
 
+def run_cmd(cmd):
+    global args
+    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
+    if not args.test: subprocess.call(cmd, shell=True)
+
+
 def fun_pre(raw_fq, prx, args):
-    """"""
+    """
+    Preprocessing raw fastq file (remove adapter, duplicates and 5' tag)
+    """
     print(prx, flush=True)
     print("\n[%s] Preprocessing ========" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
 
     if args.fastqc:
         if not args.test: subprocess.call("mkdir -p " + args.outdir +"/fastqc/raw " + args.outdir + "/fastqc/clean", shell=True)
-        cmd="fastqc "+ raw_fq + " --thread " + str(args.threads) + " -q -o " + args.outdir +"/fastqc/raw"
-        print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-        if not args.test: subprocess.call(cmd, shell=True)
+        run_cmd("fastqc "+ raw_fq + " --thread " + str(args.threads) + " -q -o " + args.outdir +"/fastqc/raw")
 
     clean_dir=args.outdir + "/02_Clean/"
 
     # trim adapter
     cutoff_len1=args.umi5+args.umi3
-    cmd="trim_galore -q 20 -j 7 --stringency 1 -e 0.3 --length " + str(cutoff_len1) + " -o " + clean_dir + " " + raw_fq
-    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-    if not args.test: subprocess.call(cmd, shell=True)
+    run_cmd("trim_galore -q 20 -j 7 --stringency 1 -e 0.3 --length " + str(cutoff_len1) + " -o " + clean_dir + " " + raw_fq)
 
     tmpfile=clean_dir + re.match(".+/([^/]+).f(ast)?q(.gz)?$", raw_fq).group(1) + "_trimmed.fq.gz"
     trimmed_fq=clean_dir + prx + "_trimmed.fq.gz"
-    cmd="mv " + tmpfile + " " + trimmed_fq
-    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-    if not args.test: subprocess.call(cmd, shell=True)
+    run_cmd("mv " + tmpfile + " " + trimmed_fq)
 
     # remove duplicates and umi
     rmdup_fq=clean_dir + prx + "_rmdup.fq.gz"
-    cmd="seqkit rmdup -j 10 -s " + trimmed_fq + " | fastx_trimmer -Q 33 -f " + str(args.umi5+1) + " -z -o " + rmdup_fq
-    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-    if not args.test: subprocess.call(cmd, shell=True)
+    run_cmd("seqkit rmdup -j 10 -s " + trimmed_fq + " | fastx_trimmer -Q 33 -f " + str(args.umi5+1) + " -z -o " + rmdup_fq)
 
     # remove tag
     clean_fq=clean_dir + prx + "_clean.fq"
@@ -99,16 +106,16 @@ def fun_pre(raw_fq, prx, args):
         ' -e 0.2 -o ' + clean_fq + ' --info-file ' + tag_info + ' ' + rmdup_fq
     if args.mode == "m6Am":
         cmd = cmd + ' --discard-untrimmed'
-    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-    if not args.test: subprocess.call(cmd, shell=True)
+    run_cmd(cmd)
     
     if args.fastqc:
-        cmd="fastqc "+ clean_fq + " --thread " + str(args.threads) + " -q -o " + args.outdir +"/fastqc/clean"
-        print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-        if not args.test: subprocess.call(cmd, shell=True)
+        run_cmd("fastqc "+ clean_fq + " --thread " + str(args.threads) + " -q -o " + args.outdir +"/fastqc/clean")
 
 
 def fun_mapping(clean_fq, prx, args):
+    """
+    Ternary mapping using STAR
+    """
     print(prx, flush=True)
     print("\n[%s] Mapping ========" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
 
@@ -119,11 +126,13 @@ def fun_mapping(clean_fq, prx, args):
         cmd=cmd_prx + " -Tf " + args.transref + " -a " + args.anno + " --combine --untreated"
     else:
         cmd=cmd_prx + " -f2 " + args.reference2 + " -rvs " + args.rvsref+ " -Tf " + args.transref + " -a " + args.anno + " --combine --rvs_fac"
-    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-    if not args.test: subprocess.call(cmd, shell=True)
+    run_cmd(cmd)
 
 
 def fun_m6Am(bam, prx, args):
+    """
+    Call m6Am
+    """
     print(prx, flush=True)
     print("\n[%s] m6am calling ========" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
     site_dir=args.outdir + "/03_Sites/"
@@ -132,58 +141,43 @@ def fun_m6Am(bam, prx, args):
     if args.ds2N is not None:
         n_reads=subprocess.run("samtools view -c " + bam, shell=True, capture_output=True, text=True)
         dsr=int(args.ds2N)/int(n_reads.stdout)
-        if dsr>=1:
-            dsr=0.99999
+        if dsr>=1: dsr=0.99999
 
         prx=prx+"_ds"
-        ds_bam = args.outdir + "/03_Sites/" + prx + "_merged.sorted.bam"
-        cmd="samtools view -@ 4 -s " + str(dsr) + " -b " + bam + " > " + ds_bam
-        print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-        if not args.test: subprocess.call(cmd, shell=True)
-
-        cmd="samtools index " + ds_bam
-        print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-        if not args.test: subprocess.call(cmd, shell=True)
+        ds_bam = site_dir + prx + "_merged.sorted.bam"
+        run_cmd("samtools view -@ 4 -s " + str(dsr) + " " + bam + " -b > " + ds_bam + " && samtools index " + ds_bam)
 
         bam=ds_bam  # use ds_bam for downstream analysis
 
-
     # call TSS
     ftss=site_dir + prx + "_TSS_raw.bed"
-    cmd="python " + args.DUOdir + "/Call_m6Am/get_TSS.py -r " + args.reference2 + " -b " + bam + " -o " + ftss
-    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-    if not args.test: subprocess.call(cmd, shell=True)
+    run_cmd("python " + args.DUOdir + "/Call_m6Am/get_TSS.py -r " + args.reference2 + " -b " + bam + " -o " + ftss)
 
     # annotate TSS
     ftss_anno=site_dir + prx + "_TSS_raw.bed.annotated"
-    cmd="bedtools intersect -a " + ftss + " -b " + args.tssanno + " -s -wa -wb > " + ftss_anno
-    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-    if not args.test: subprocess.call(cmd, shell=True)
+    run_cmd("bedtools intersect -a " + ftss + " -b " + args.tssanno + " -s -wa -wb > " + ftss_anno)
 
     ftss_clean=site_dir + prx + "_TSS.bed"
-    cmd="python " + args.DUOdir + "/Call_m6Am/anno_TSS.py -i " + ftss_anno + " -o " + ftss_clean + \
+    run_cmd("python " + args.DUOdir + "/Call_m6Am/anno_TSS.py -i " + ftss_anno + " -o " + ftss_clean + \
         " --cov " + str(args.cov) + " --tpm " + str(args.tpm) + \
-        " --absDist " + str(args.absDist) + " --zscore " + str(args.zscore)
-    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-    if not args.test: subprocess.call(cmd, shell=True)
+        " --absDist " + str(args.absDist) + " --zscore " + str(args.zscore))
     
     if not args.untreated:
         # pile ATCG
         fAGcount=site_dir + prx + "_AGcount.tsv"
-        cmd="python " + args.DUOdir + "/Call_m6Am/pileup_reads5p.py -r " + args.reference2 + " -l " + ftss_clean + " -o " + fAGcount + " -b " + bam
-        print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-        if not args.test: subprocess.call(cmd, shell=True)
+        run_cmd("python " + args.DUOdir + "/Call_m6Am/pileup_reads5p.py -r " + args.reference2 + " -l " + ftss_clean + " -o " + fAGcount + " -b " + bam)
 
         # call m6Am
         fm6Am=site_dir + prx + "_m6Am_sites.tsv"
-        cmd="python " + args.DUOdir + "/Call_m6Am/m6Am_caller.py -i " + fAGcount + " -o " + fm6Am + \
+        run_cmd("python " + args.DUOdir + "/Call_m6Am/m6Am_caller.py -i " + fAGcount + " -o " + fm6Am + \
             " --Acov " + str(args.Acov) + " --FDR " + str(args.FDR) + \
-            " --Signal_Ratio " + str(args.Signal_Ratio) + " --AG_Ratio " + str(args.AG_Ratio)
-        print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-        if not args.test: subprocess.call(cmd, shell=True)
+            " --Signal_Ratio " + str(args.Signal_Ratio) + " --AG_Ratio " + str(args.AG_Ratio))
 
 
 def fun_m6A(bam, prx, args):
+    """
+    Call m6A
+    """
     print(prx, flush=True)
     print("\n[%s] m6a calling ========" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
     site_dir=args.outdir + "/03_Sites/"
@@ -192,46 +186,53 @@ def fun_m6A(bam, prx, args):
     if args.ds2N is not None:
         n_reads=subprocess.run("samtools view -c " + bam, shell=True, capture_output=True, text=True)
         dsr=int(args.ds2N)/int(n_reads.stdout)
-        if dsr>=1:
-            dsr=0.99999
+        if dsr>=1: dsr=0.99999
 
         prx=prx+"_ds"
-        ds_bam = args.outdir + "/03_Sites/" + prx + "_merged.sorted.bam"
-        cmd="samtools view -@ 4 -s " + str(dsr) + " -b " + bam + " > " + ds_bam
-        print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-        if not args.test: subprocess.call(cmd, shell=True)
-
-        cmd="samtools index " + ds_bam
-        print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-        if not args.test: subprocess.call(cmd, shell=True)
+        ds_bam = site_dir + prx + "_merged.sorted.bam"
+        run_cmd("samtools view -@ 4 -s " + str(dsr) + " " + bam + " -b > " + ds_bam + " && samtools index " + ds_bam)
 
         bam=ds_bam  # use ds_bam for downstream analysis
     
     # pileup
-    cmd="python " + args.DUOdir + "/Call_m6A/Run_GLORI_pileup.py --bam " + bam + " -T " + str(args.threads) + \
-        " -f " + args.reference + " -f2 " + args.reference2 + " -pre " + prx + " -o " + site_dir
-    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-    if not args.test: subprocess.call(cmd, shell=True)
+    run_cmd("python " + args.DUOdir + "/Call_m6A/Run_GLORI_pileup.py --bam " + bam + " -T " + str(args.threads) + \
+        " -f " + args.reference + " -f2 " + args.reference2 + " -pre " + prx + " -o " + site_dir)
 
     # call m6A
     fmpi=site_dir + prx + ".referbase.mpi"
-    cmd="python " + args.DUOdir + "/Call_m6A/Run_GLORI_m6A.py --mpi " + fmpi + " -T " + str(args.threads) + \
+    run_cmd("python " + args.DUOdir + "/Call_m6A/Run_GLORI_m6A.py --mpi " + fmpi + " -T " + str(args.threads) + \
         " -b " + args.baseanno + " -c " + str(args.cov) + " -C " + str(args.Acov) + " -p " + str(args.FDR) + \
-        " -adp " + str(args.FDR) + " -s " + str(args.Signal_Ratio) + " -R " + str(args.AG_Ratio) + \
-        " -pre " + prx + " -o " + site_dir
-    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
-    if not args.test: subprocess.call(cmd, shell=True)
+        " -adp " + str(args.FDR) + " -s " + str(args.Signal_Ratio) + " -r " + str(args.methyl_Ratio) + " -R " + str(args.AG_Ratio) + \
+        " -pre " + prx + " -o " + site_dir)
 
 
-def fun_QC():
-    pass
+def fun_QC(bam, prx, args):
+    """
+    Quality control
+    """
+    print(prx, flush=True)
+    print("\n[%s] Quality control ========" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
+    qc_dir=args.outdir + "/03_Sites/QC/"
 
+    # 1. get alignments length
+    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + "Get alignments length:", flush=True)
+    mini_bam = qc_dir + prx + "_subsample_0.05.bam"
+    run_cmd("samtools view -@ 4 -s 0.05 " + bam + " -b > " + mini_bam + " && samtools index " + mini_bam)
+    run_cmd("python " + args.DUOdir + "/QC/get_align_len.py " + mini_bam + qc_dir + prx + "_align_len.csv") 
+
+    # 2. get read distribution (qualimap)
+    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + "Get read distribution (qualimap):", flush=True)
+    qualimap_dir = qc_dir + "qualimap/" + prx + "/"
+    gtf = args.gtf if not args.untreated else args.gtf2
+    run_cmd("mkdir -p " + qualimap_dir + " && qualimap rnaseq -outdir " + qualimap_dir + " -bam " + mini_bam + " -gtf " + gtf + " --java-mem-size=32G")
+    
 
 def main(args):
     os.makedirs(args.outdir+"/02_Clean/", exist_ok=True)
-    os.makedirs(args.outdir+"/03_Sites/", exist_ok=True)
+    os.makedirs(args.outdir+"/03_Sites/QC/", exist_ok=True)
     os.makedirs(args.outdir+"/intermediate/", exist_ok=True)
 
+    # parse modules to call
     if args.module is None:
         module = ["preprocessing", "mapping", "QC"]
         if args.mode == "m6Am":
@@ -247,7 +248,8 @@ def main(args):
             if "call_m6Am" in module:
                 raise ValueError("No call_m6Am module in m6A mode!")
     
-    prx=None
+    # call each module
+    prx=None  # Initialize prx to detect the beginning module
 
     if "preprocessing" in module:
         if args.raw_fq is None:
@@ -301,7 +303,18 @@ def main(args):
         fun_m6A(bam, prx, args)
     
     if "QC" in module:
-        pass
+        if prx is None:  # begin with QC step
+            if args.bam is None:
+                raise ValueError("Bam files must be provided if beginning with the QC step!")
+            else:
+                if args.prx is None:
+                    prx=re.match("(.*/)?([^/]+)_merged.sorted.bam$", args.bam).group(2)
+                else:
+                    prx=args.prx
+            bam=args.bam
+        else:
+            bam=args.outdir + "/03_Sites/" + prx + "_merged.sorted.bam"
+        fun_QC(bam, prx, args)
 
     print("\n[%s] Done! ========" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
 
