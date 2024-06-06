@@ -48,13 +48,13 @@ group_m6Am.add_argument("-ds", "--ds2N", type=int, default=None, help="[Both] Do
 
 group_m6Am.add_argument("-c", "--cov", type=int, default=15, help='[Both] minimum A+G coverage for TSS, default is 15')
 group_m6Am.add_argument("-C", "--Acov", type=int, default=5, help='[Both] minimum A coverage for m6Am sites, default is 5')
-group_m6Am.add_argument("--FDR", type=float, default=0.001, help="[Both] FDR cutoff, default is 0.001")
 group_m6Am.add_argument("-s", "--Signal_Ratio", type=float, default=0.8, 
                     help="[Both] minimum ratio of signal reads (eg. reads with unconverted As less than 3), default is 0.8")
 group_m6Am.add_argument("-R", "--AG_Ratio", type=float, default=0.8, 
                     help="[Both] minimum ratio of (A+G reads)/total in this sites, default is 0.8")
+group_m6Am.add_argument("--FDR", type=float, default=0.001, help="[Both] FDR cutoff, default is 0.001")
 group_m6Am.add_argument("-ta", "--tssanno", type=str, help="[m6Am] Annotation of TSS range")
-group_m6Am.add_argument("-tpm", type=float, default=1.0, help="[m6Am] minimum TPM value for TSS, default is 1.0")
+group_m6Am.add_argument("--tpm", type=float, default=1.0, help="[m6Am] minimum TPM value for TSS, default is 1.0")
 group_m6Am.add_argument("--absDist", type=int, default=1000, help="[m6Am] maximum absolute distance to any annotated TSS from GTF file, default is 1000")
 group_m6Am.add_argument("--zscore", type=float, default=1.0, help="[m6Am] minimum Z-score (calculated within a gene) for TSS, default is 1.0")
 group_m6Am.add_argument("-ba", "--baseanno", type=str, help="[m6A] Annotations at single-base resolution")
@@ -62,9 +62,9 @@ group_m6Am.add_argument("-r", "--methyl_Ratio", type = float, default=0.1, help=
 
 group_QC = parser.add_argument_group("QC")
 group_QC.add_argument("--gtf", type=str, help="GTF file, chromosome name with suffix '_AG_converted'")
-group_mapping.add_argument("--gtf2", type=str, help="GTF file")
-group_mapping.add_argument("--mPRdir", type=str, help = "Directory of metaPlotR")
-group_mapping.add_argument("--mPRanno", type=str, help="Directory and prefix of metaPlotR annotations")
+group_QC.add_argument("--gtf2", type=str, help="GTF file")
+group_QC.add_argument("--mPRdir", type=str, help = "Directory of metaPlotR")
+group_QC.add_argument("--mPRanno", type=str, help="Directory and prefix of metaPlotR annotations")
 
 args = parser.parse_args()
 
@@ -218,14 +218,14 @@ def fun_QC(bam, prx, args):
     print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + "Get alignments length:", flush=True)
     mini_bam = qc_dir + prx + "_subsample_0.05.bam"
     run_cmd("samtools view -@ 4 -s 0.05 " + bam + " -b > " + mini_bam + " && samtools index " + mini_bam)
-    run_cmd("python " + args.DUOdir + "/QC/get_align_len.py " + mini_bam + qc_dir + prx + "_align_len.csv") 
+    run_cmd("python " + args.DUOdir + "/QC/get_align_len.py " + mini_bam + " " + qc_dir + prx + "_align_len.csv") 
 
     # 2. get read distribution (qualimap)
     print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + "Get read distribution (qualimap):", flush=True)
     qualimap_dir = qc_dir + "qualimap/" + prx + "/"
     gtf = args.gtf if not args.untreated else args.gtf2
     run_cmd("mkdir -p " + qualimap_dir + " && qualimap rnaseq -outdir " + qualimap_dir + " -bam " + mini_bam + " -gtf " + gtf + " --java-mem-size=32G")
-    
+
 
 def main(args):
     os.makedirs(args.outdir+"/02_Clean/", exist_ok=True)
