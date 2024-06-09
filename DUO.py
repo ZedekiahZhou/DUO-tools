@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Author: Zhe Zhou, Peking University, Yi lab
 Date: May 24, 2024
@@ -46,13 +47,13 @@ group_mapping.add_argument("-a", "--anno", nargs="?", help="Annotation file with
 group_m6Am = parser.add_argument_group("Call m6Am or m6A")
 group_m6Am.add_argument("-ds", "--ds2N", type=int, default=None, help="[Both] Downsample the merged sorted bam files to N reads, default is no downsample.")
 
-group_m6Am.add_argument("-c", "--cov", type=int, default=15, help='[Both] minimum A+G coverage for TSS, default is 15')
-group_m6Am.add_argument("-C", "--Acov", type=int, default=5, help='[Both] minimum A coverage for m6Am sites, default is 5')
+group_m6Am.add_argument("-c", "--cov", type=int, default=15, help='[Both] minimum A+G coverage for TSS or m6A sites, default is 15')
+group_m6Am.add_argument("-C", "--Acov", type=int, default=5, help='[Both] minimum A coverage for m6A(m) sites, default is 5')
 group_m6Am.add_argument("-s", "--Signal_Ratio", type=float, default=0.8, 
                     help="[Both] minimum ratio of signal reads (eg. reads with unconverted As less than 3), default is 0.8")
 group_m6Am.add_argument("-R", "--AG_Ratio", type=float, default=0.8, 
                     help="[Both] minimum ratio of (A+G reads)/total in this sites, default is 0.8")
-group_m6Am.add_argument("--FDR", type=float, default=0.001, help="[Both] FDR cutoff, default is 0.001")
+group_m6Am.add_argument("-adp", "--FDR", type=float, default=0.001, help="[Both] FDR cutoff, default is 0.001")
 group_m6Am.add_argument("-ta", "--tssanno", type=str, help="[m6Am] Annotation of TSS range")
 group_m6Am.add_argument("--tpm", type=float, default=1.0, help="[m6Am] minimum TPM value for TSS, default is 1.0")
 group_m6Am.add_argument("--absDist", type=int, default=1000, help="[m6Am] maximum absolute distance to any annotated TSS from GTF file, default is 1000")
@@ -201,8 +202,8 @@ def fun_m6A(bam, prx, args):
     # call m6A
     fmpi=site_dir + prx + ".referbase.mpi"
     run_cmd("python " + args.DUOdir + "/Call_m6A/Run_GLORI_m6A.py --mpi " + fmpi + " -T " + str(args.threads) + \
-        " -b " + args.baseanno + " -c " + str(args.cov) + " -C " + str(args.Acov) + " -p " + str(args.FDR) + \
-        " -adp " + str(args.FDR) + " -s " + str(args.Signal_Ratio) + " -r " + str(args.methyl_Ratio) + " -R " + str(args.AG_Ratio) + \
+        " -b " + args.baseanno + " -c " + str(args.cov) + " -C " + str(args.Acov) + " -adp " + str(args.FDR) + \
+        " -s " + str(args.Signal_Ratio) + " -r " + str(args.methyl_Ratio) + " -R " + str(args.AG_Ratio) + \
         " -pre " + prx + " -o " + site_dir)
 
 
@@ -232,7 +233,7 @@ def main(args):
     os.makedirs(args.outdir+"/03_Sites/QC/", exist_ok=True)
     os.makedirs(args.outdir+"/intermediate/", exist_ok=True)
 
-    # parse modules to call
+    # parse modules to run with
     if args.module is None:
         module = ["preprocessing", "mapping", "QC"]
         if args.mode == "m6Am":
@@ -251,11 +252,15 @@ def main(args):
     # call each module
     prx=None  # Initialize prx to detect the beginning module
 
+    # Check:
+    #   1. if the pipelines are begin with spcific steps
+    #   2. wheather args.prx were specified by user
+
     if "preprocessing" in module:
         if args.raw_fq is None:
             raise ValueError("Raw fastq files must be provided if run preprocessing!")
         if args.prx is None:
-            prx=re.match("(.*/)?([^/]+)_L[1-9]+_(R)?[12].f(ast)?q(.gz)?$", args.raw_fq).group(2)
+            prx=re.match("(.*/)?([^/]+)_[LS][1-9]+_(R)?[12].f(ast)?q(.gz)?$", args.raw_fq).group(2)
         else:
             prx=args.prx
         fun_pre(args.raw_fq, prx, args)

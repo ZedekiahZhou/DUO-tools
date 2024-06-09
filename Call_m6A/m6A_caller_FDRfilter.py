@@ -9,11 +9,16 @@
 
 import pandas as pd
 import argparse
-from statsmodels.sandbox.stats.multicomp import multipletests
+from statsmodels.stats.multitest import multipletests
 import os
 import sys
 import time
 from time import strftime
+
+"""
+History:
+    1. keep column "signal ratio"
+"""
 
 
 def get_data(file1,output,adjustP):
@@ -45,10 +50,11 @@ def get_cov_ratio(df,sam):
     ratio = df.iloc[:,13]
     normedRatio = df.iloc[:, 13]*(1-df.iloc[:, 8])
     Pvalue = df.iloc[:,14]
+    Signal_Ratio = df.iloc[:,15]
     Genecov = df.iloc[:, 16]
     p_adjust = df.iloc[:,18]
     pd_t = pd.DataFrame({'Chr':chr,'Sites':sites,'Strand':strand,'Gene':gene,'CR':1-nonCR,'AGcov':AGcov,'Acov':Acov,'Genecov':Genecov,\
-     'Ratio':ratio,'Pvalue':Pvalue,'P_adjust':p_adjust})
+        'Signal_Ratio':Signal_Ratio,'Ratio':ratio,'Pvalue':Pvalue,'P_adjust':p_adjust})
     return pd_t
 
 

@@ -24,15 +24,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="get_TSS",fromfile_prefix_chars='@',description=description,formatter_class=argparse.RawTextHelpFormatter)
     #Require
     group_required = parser.add_argument_group("Required")
-    group_required.add_argument("-r","--refs",dest="references",required=True,help="reference fastas; if more than one is supplied, separate them by comma")
-    group_required.add_argument("-b","--bam",dest="fbams",required=True,help="one or more sorted input bam (Multimapped and unmapped reads must be excluded first!)")
+    group_required.add_argument("-r","--refs", dest="references", nargs='+', required=True, help="reference fasta(s)")
+    group_required.add_argument("-b","--bam", dest="fbams", nargs='+', required=True, 
+                                help="one or more sorted input bam (Multimapped and unmapped reads must be excluded first!)")
     group_required.add_argument("-o","--output",dest="output",required=True,help="output")
     options = parser.parse_args()
 
     # Step1: Init
     ## parse reference
     reference_genome = {}
-    for reference in options.references.split(","):
+    for reference in options.references:
         for seq in SeqIO.parse(reference,"fasta"):
             reference_genome[seq.id] = str(seq.seq).upper()
 
@@ -41,7 +42,7 @@ if __name__ == "__main__":
     total = 0
 
     # Pileup 
-    for fbam in options.fbams.split(","):
+    for fbam in options.fbams:
         with pysam.AlignmentFile(fbam, "rb") as input_BAM:
             # iterate by reads, pileup 5' end
             for read in input_BAM:
@@ -65,5 +66,6 @@ if __name__ == "__main__":
     with open(options.output, "w") as fout:
         for key, values in output.items():
             ID = key[0] + "_" + str(key[1]) + "_" + key[2]
-            fout.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(key[0], key[1]-1, key[1], ID, values["Counts"], key[2], values["Ref_base"], round(values["Counts"]/total*1000000, 3)))
+            fout.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(key[0], key[1]-1, key[1], ID, values["Counts"], key[2], 
+                                                                 values["Ref_base"], round(values["Counts"]/total*1000000, 3)))
         

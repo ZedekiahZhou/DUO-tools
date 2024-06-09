@@ -3,6 +3,11 @@ from scipy import stats
 import argparse
 from statsmodels.stats.multitest import multipletests
 
+"""
+History:
+    1. remove "-p", do not filter p value, use all rows to calculate FDR in "m6A_caller_FDRfilter.py"
+"""
+
 # args
 parser = argparse.ArgumentParser(description="call m6Am sites from AGcounts file")
 parser.add_argument("-i", "--input", type=str, required=True, help="AGcounts file from pileup_reads5p.py")
@@ -61,6 +66,6 @@ df.write_csv(frawout, separator="\t")
 used_col = ['Chr', 'Pos', 'Strand', 'A', 'AG_cov', 'm6Am_Ratio', 'Pvalue', 'FDR', 
             'Ref_base', 'Counts', 'TPM', 'geneID', 'txID', 'txBiotype', 'Dist']
 df2 = df.filter(
-    (pl.col("A") >= args.Acov) & (pl.col("FDR") < args.FDR) & (pl.col("Signal_Ratio") > args.Signal_Ratio) & (pl.col("AG_Ratio") > args.AG_Ratio)
+    (pl.col("A") >= args.Acov) & (pl.col("FDR") < args.FDR) & (pl.col("Signal_Ratio") >= args.Signal_Ratio) & (pl.col("AG_Ratio") >= args.AG_Ratio)
 ).select(pl.col(used_col))
 df2.write_csv(args.output, separator="\t")

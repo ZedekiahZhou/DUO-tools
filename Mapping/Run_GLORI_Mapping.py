@@ -40,7 +40,6 @@ def run_command(file,combine,untreated,rvs_fac,Threads):
     file7_1 = outputprefix + "_merged.bam"  # merged
     finalbam = outputprefix + "_merged.sorted.bam"  # merged, sorted, final bam
 
-    print("\n[%s] Mapping ========" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
     mapping_1 = "python "+DUOdir+"mapping_reads.py -i " + DUOdir + " -q "+ file +" -p "+ Threads + " -f "+ genome+ ' --FilterN '+FilterN
     mapping_2 = " -mulMax " + mulMax + " -t " + tool + " -m " + mismatch +" -pre "+ prx+ " -o " + outputdir
     if untreated:
@@ -51,26 +50,26 @@ def run_command(file,combine,untreated,rvs_fac,Threads):
         else:
             mapping_command = mapping_1 + mapping_2 + " --untreated "
         if combine:
-            print("\n**************combine,untreated")
-            print(mapping_command)
+            print("\n**************combine,untreated", flush=True)
+            print(mapping_command, flush=True)
             subprocess.call(mapping_command, shell=True)
 
-            print("\n---- [%s] Transcript sites to genome locus " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-            print("python " + DUOdir + "trans2genome.py --input " + file3 + " --output " + file4 + " --anno " + anno + " --fasta " + genome + " --sort --index")
+            print("\n---- [%s] Transcript sites to genome locus " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
+            print("python " + DUOdir + "trans2genome.py --input " + file3 + " --output " + file4 + " --anno " + anno + " --fasta " + genome + " --sort --index", flush=True)
             subprocess.call("python " + DUOdir + "trans2genome.py --input " + file3 + " --output " + file4 +\
                             " --anno " + anno + " --fasta " + genome + " --untreated --sort --index",
                 shell=True)
-            print("\n---- [%s] Concat bam " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            print("\n---- [%s] Concat bam " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
             subprocess.call("python " + DUOdir + "concat_bam.py -i " + file5 + " " + file6 + " -o " + file7_1 + " -t " + Threads + " --sort --index ",
                 shell=True)         
             # subprocess.call("rm -f " + outputprefix +"_un*", shell=True)
             subprocess.call("rm -f " + outputprefix +".SJ.out.tab", shell=True)
             subprocess.call("rm -f " + outputprefix +".trans2Genome*", shell=True)
         else:
-            print("\n**************uncombine,untreated")
-            print(mapping_command)
+            print("\n**************uncombine,untreated", flush=True)
+            print(mapping_command, flush=True)
             subprocess.call(mapping_command, shell=True)
-            print("samtools view -F 4 -@ " + Threads + " -bS -h " + file5 + " | samtools sort -@ " + Threads + " > " + finalbam)
+            print("samtools view -F 4 -@ " + Threads + " -bS -h " + file5 + " | samtools sort -@ " + Threads + " > " + finalbam, flush=True)
             subprocess.call("samtools view -F 4 -@ " + Threads + " -bS -h " + file5 + " | samtools sort -@ " + Threads + " > " + finalbam,
                 shell=True)
             subprocess.call("samtools index " + finalbam, shell=True)
@@ -82,14 +81,14 @@ def run_command(file,combine,untreated,rvs_fac,Threads):
         sys.exit(0)
     else:
         if combine and rvs_fac:
-            print("\n**************combine,treated")
+            print("\n**************combine,treated", flush=True)
             mapping_command = mapping_1 + " -rvs " + rvsref +" -Tf "+ transgenome + mapping_2 + " --combine "+ " --rvs_fac"
             subprocess.call(mapping_command, shell=True)
             
-            print("\n---- [%s] Transcript sites to genome locus " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-            print("python "+DUOdir+"trans2genome.py --input " + file3 + " --output "+file4 + " --anno "+anno+" --fasta "+genome+" --sort --index")
+            print("\n---- [%s] Transcript sites to genome locus " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
+            print("python "+DUOdir+"trans2genome.py --input " + file3 + " --output "+file4 + " --anno "+anno+" --fasta "+genome+" --sort --index", flush=True)
             subprocess.call("python "+DUOdir+"trans2genome.py --input " + file3 + " --output "+file4 + " --anno "+anno+" --fasta "+genome+" --sort --index",shell=True)
-            print("\n---- [%s] Concat bam " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            print("\n---- [%s] Concat bam " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
             subprocess.call("python "+DUOdir+"concat_bam.py -i " + file3_2 + " " + file5 + " -o " + file6_2 + " -t " + Threads + " --sort --index ",shell=True)
             filexx = file6_2[:-4]+'.sorted.bam'
             subprocess.call("python "+DUOdir+"concat_bam.py -i " + filexx + " " + file6 + " -o " + file7_1 + " -t " + Threads + " --sort --index ",shell=True)
@@ -105,18 +104,18 @@ def run_command(file,combine,untreated,rvs_fac,Threads):
             subprocess.call("rm -f " + file6_2+"*", shell=True)
             subprocess.call("rm -f " + outputprefix + "_tf_rs.unlift.bam"+"*", shell=True)
         elif not combine and not rvs_fac:
-            print("\n**************uncombine,treated,no rvs_fac")
+            print("\n**************uncombine,treated,no rvs_fac", flush=True)
             mapping_command = mapping_1 + mapping_2
-            print(mapping_command)
+            print(mapping_command, flush=True)
             subprocess.call(mapping_command, shell=True)
-            print("samtools view -F 20 -@ " + Threads + " -bS -h " + file5 + " | samtools sort -@ " + Threads + " > " + finalbam)
+            print("samtools view -F 20 -@ " + Threads + " -bS -h " + file5 + " | samtools sort -@ " + Threads + " > " + finalbam, flush=True)
             subprocess.call("samtools view -F 20 -@ " + Threads + " -bS -h " + file5 + " | samtools sort -@ " + Threads + " > " + finalbam,shell=True)
             subprocess.call("samtools index " + finalbam, shell=True)
 
         subprocess.call("mkdir -p "+outputdir+"/mapping-info", shell=True)
         subprocess.call("mv "+outputprefix+"*out "+outputdir+"/mapping-info", shell=True)
         subprocess.call("mv "+outputprefix+"*put "+outputdir+"/mapping-info", shell=True)
-    print("\n---- [%s] merged bam finished " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+    print("\n---- [%s] merged bam finished " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
 
 
 if __name__ == "__main__":

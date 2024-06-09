@@ -27,10 +27,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="pileup_reads_5p",fromfile_prefix_chars='@',description=description,formatter_class=argparse.RawTextHelpFormatter)
     #Require
     group_required = parser.add_argument_group("Required")
-    group_required.add_argument("-r","--ref",dest="references",required=True,help="reference fasta")
-    group_required.add_argument("-l","--list",dest="fTSS",required=True,help="TSS list file")
-    group_required.add_argument("-b","--bam",dest="fbams",required=True,help="input bam, sorted")
-    group_required.add_argument("-o","--output",dest="output",required=True,help="output")
+    group_required.add_argument("-r","--ref", dest="references", nargs="+", required=True,help="reference fasta(s)")
+    group_required.add_argument("-l","--list", dest="fTSS",required=True,help="TSS list file")
+    group_required.add_argument("-b","--bam", dest="fbams", nargs="+", required=True,help="input bam(s), sorted")
+    group_required.add_argument("-o","--output", dest="output",required=True,help="output")
     # Optional
     group_optional = parser.add_argument_group("Optional")
     group_optional.add_argument("--maxAs", dest="max_allowed_As", default=3,
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     ## parse reference
     print("------ [%s] Loading genome ..." % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
     reference_genome = {}
-    for reference in options.references.split(","):
+    for reference in options.references:
         for seq in SeqIO.parse(reference,"fasta"):
             reference_genome[seq.id] = str(seq.seq).upper()
 
@@ -111,7 +111,7 @@ if __name__ == "__main__":
 
     # Step II: Pileup 
     print("------ [%s] Pileup 5p ends of reads ..." % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
-    for fbam in options.fbams.split(","):
+    for fbam in options.fbams:
         with pysam.AlignmentFile(fbam, "rb") as input_BAM:
             # iterate by reads, pileup 5' end
             for read in input_BAM:

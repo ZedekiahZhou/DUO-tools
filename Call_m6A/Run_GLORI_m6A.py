@@ -124,8 +124,9 @@ def run_command(total_mpi, Threads):
         CR1 = pd.read_csv(file, sep="\t", names=['SA', 'Totalcovered_reads', 'Remained A reads', 'Non-A-to-G ratio','Mapped_area'])
 
         if CR1.shape[0] > 0:  # CR.txt files for some segment may be NULL!!
-            CR2 = CR1[~CR1['SA'].isin(['#90%', '#75%', '#50%', '#25%', '#10%', '#Median', '#Mean'])]
-            CR2.iloc[0, 0] += "_" + chr_x
+            CR2 = CR1[~CR1['SA'].isin(['#90%', '#75%', '#50%', '#25%', '#10%', '#Mean'])]  # only keep rows to "#ALL" and "#Median"
+            CR2.iloc[0, 0] += "_" + chr_x  # rows "#ALL"
+            CR2.iloc[1, 0] += "_" + chr_x  # rows "#Median"
             pd_CR = pd.concat([pd_CR, CR2])
 
     # whole transcriptome

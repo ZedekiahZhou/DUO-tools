@@ -116,36 +116,36 @@ def call_m6A(line, col):
                     nonCR = 1.0
                 else:
                     nonCR = nonCRs.get("control")
+            
+            # hypothesis testing of sites
             if options.method == "binomial":
                 pvalue = scipy.stats.binom_test(A_count_col, n=AG_col, alternative='greater', p=nonCR)
             elif options.method == "fisher":
                 pass
             elif options.method == "poisson":
                 pvalue = scipy.stats.poisson.sf(A_count_col, int(math.ceil(nonCR * AG_col)))
-            # print("************3")
-            if pvalue < options.pvalue:
-                # print("************4")
-                Signal = total_cov_col / (total_cov + 0.0)
-                if Signal >= options.signal:
-                    # print("************5")
-                    if nonCR_gene < 0.00001:
-                        nonCR_format = format(nonCR_gene, '.1e')
-                    else:
-                        nonCR_format = str(round(nonCR_gene, 5))
-                    if pvalue < 0.001:
-                        P_format = format(pvalue, '.1e')
-                    else:
-                        P_format = str(round(pvalue, 3))
-                    # print("**********2")
-                    LINE = "\t".join([chr, pos_1, dir, gene, name, trans, isoform, biotype, nonCR_format])
-                    LINE = LINE + "\t" + ",".join(line[8:14])
-                    LINE = LINE + "\t" + "\t".join(
-                        [str(total_cov_col), str(AG_col), str(A_count_col), str(round(ratio, 5)), P_format,
-                         str(round(Signal, 6)),str(averageDepth)])
-                    LINE = LINE + "\t" + "|".join([i for i in line[14:]]) + "\n"
-                    # print("**********6")
+            
+            # Output            
+            Signal = total_cov_col / (total_cov + 0.0)
+            if Signal >= options.signal:
+                if nonCR_gene < 0.00001:
+                    nonCR_format = format(nonCR_gene, '.1e')
+                else:
+                    nonCR_format = str(round(nonCR_gene, 5))
+                
+                if pvalue < 0.001:
+                    P_format = format(pvalue, '.1e')
+                else:
+                    P_format = str(round(pvalue, 3))
+                
+                LINE = "\t".join([chr, pos_1, dir, gene, name, trans, isoform, biotype, nonCR_format])
+                LINE = LINE + "\t" + ",".join(line[8:14])
+                LINE = LINE + "\t" + "\t".join(
+                    [str(total_cov_col), str(AG_col), str(A_count_col), str(round(ratio, 5)), P_format,
+                        str(round(Signal, 6)),str(averageDepth)])
+                LINE = LINE + "\t" + "|".join([i for i in line[14:]]) + "\n"
 
-                    return LINE
+                return LINE
     else:
         return None
 
@@ -166,7 +166,6 @@ if __name__ == "__main__":
     group_site.add_argument("-C", "--count", dest="count", default=5, type=int,
                             help="A count, below which the site will not count, default=3")
     group_site.add_argument("-r", "--ratio", dest="ratio", default=0.1, type=float, help="m6A level/ratio, default=0.1")
-    group_site.add_argument("-p", "--pvalue", dest="pvalue", default=0.005, type=float, help="pvalue, default=0.05")
     group_site.add_argument("-s", "--signal", dest="signal", default=0.8, type=float,
                             help="signal ratio, equals coverage(under A-cutoff)/coverage, default=0.8")
     group_site.add_argument("-R", "--var_ratio", dest="var_ratio", default=0.8, type=float,
