@@ -128,6 +128,7 @@ def fun_mapping(clean_fq, prx, args):
     else:
         cmd=cmd_prx + " -f2 " + args.reference2 + " -rvs " + args.rvsref+ " -Tf " + args.transref + " -a " + args.anno + " --combine --rvs_fac"
     run_cmd(cmd)
+    run_cmd("mv " + site_dir + prx + "_A.bed_sorted " + site_dir + prx + "_AGchanged_2.fq " + site_dir + "/intermediate/")
 
 
 def fun_m6Am(bam, prx, args):
@@ -157,11 +158,13 @@ def fun_m6Am(bam, prx, args):
     # annotate TSS
     ftss_anno=site_dir + prx + "_TSS_raw.bed.annotated"
     run_cmd("bedtools intersect -a " + ftss + " -b " + args.tssanno + " -s -wa -wb > " + ftss_anno)
+    run_cmd("mv " + ftss + " " + site_dir + "/intermediate/")
 
     ftss_clean=site_dir + prx + "_TSS.bed"
     run_cmd("python " + args.DUOdir + "/Call_m6Am/anno_TSS.py -i " + ftss_anno + " -o " + ftss_clean + \
         " --cov " + str(args.cov) + " --tpm " + str(args.tpm) + \
         " --absDist " + str(args.absDist) + " --zscore " + str(args.zscore))
+    run_cmd("rm -rf " + ftss_anno + " " + ftss_anno + ".rmdup")
     
     if not args.untreated:
         # pile ATCG
@@ -173,6 +176,9 @@ def fun_m6Am(bam, prx, args):
         run_cmd("python " + args.DUOdir + "/Call_m6Am/m6Am_caller.py -i " + fAGcount + " -o " + fm6Am + \
             " --Acov " + str(args.Acov) + " --FDR " + str(args.FDR) + \
             " --Signal_Ratio " + str(args.Signal_Ratio) + " --AG_Ratio " + str(args.AG_Ratio))
+        
+        run_cmd("mv " + fAGcount + " " + site_dir + prx + "_m6Am_sites_raw.tsv " + site_dir + "/intermediate/")
+    
 
 
 def fun_m6A(bam, prx, args):
@@ -231,7 +237,7 @@ def fun_QC(bam, prx, args):
 def main(args):
     os.makedirs(args.outdir+"/02_Clean/", exist_ok=True)
     os.makedirs(args.outdir+"/03_Sites/QC/", exist_ok=True)
-    os.makedirs(args.outdir+"/intermediate/", exist_ok=True)
+    os.makedirs(args.outdir+"/03_Sites/intermediate/", exist_ok=True)
 
     # parse modules to run with
     if args.module is None:
