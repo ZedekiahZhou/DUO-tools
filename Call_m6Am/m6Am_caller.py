@@ -12,11 +12,11 @@ History:
 parser = argparse.ArgumentParser(description="call m6Am sites from AGcounts file")
 parser.add_argument("-i", "--input", type=str, required=True, help="AGcounts file from pileup_reads5p.py")
 parser.add_argument("-o", "--output", type=str, required=True, help="output file name")
-parser.add_argument("--Acov", type=int, default=5, help='minimum A coverage for m6Am sites, default is 5')
-parser.add_argument("--FDR", type=float, default=0.001, help="FDR cutoff, default is 0.001")
-parser.add_argument("--Signal_Ratio", type=float, default=0.8, 
+parser.add_argument("-C", "--Acov", type=int, default=5, help='minimum A coverage for m6Am sites, default is 5')
+parser.add_argument("-adp", "--FDR", type=float, default=0.05, help="FDR cutoff, default is 0.05")
+parser.add_argument("-s", "--Signal_Ratio", type=float, default=0.8, 
                     help="minimum ratio of signal reads (eg. reads with unconverted As less than 3), default is 0.8")
-parser.add_argument("--AG_Ratio", type=float, default=0.8, 
+parser.add_argument("-R", "--AG_Ratio", type=float, default=0.8, 
                     help="minimum ratio of (A+G reads)/total in this sites, default is 0.8")
 args = parser.parse_args()
 
@@ -40,7 +40,7 @@ df = df.with_columns(
     (pl.col("Next_pos_A") + pl.col("Next_pos_G")).alias("Next_pos_AG")  # Ctrl A + G coverage
 ).with_columns(
     (pl.col("Signal_cov")/pl.col("Counts")).round(3).alias("Signal_Ratio"),  # signal ratio
-    (pl.col("AG_cov")/pl.col("Counts")).round(3).alias("AG_Ratio"),  # AG ratio
+    (pl.col("AG_cov")/pl.col("Signal_cov")).round(3).alias("AG_Ratio"),  # AG ratio
     pl.when(pl.col("Next_pos_AG") == 0)
     .then(pl.lit(0))
     .otherwise(pl.col("Next_pos_A")/pl.col("Next_pos_AG"))
@@ -64,7 +64,7 @@ df.write_csv(frawout, separator="\t")
 
 # filtering
 used_col = ['Chr', 'Pos', 'Strand', 'A', 'AG_cov', 'm6Am_Ratio', 'Pvalue', 'FDR', 
-            'Ref_base', 'Counts', 'TPM', 'geneID', 'txID', 'txBiotype', 'Dist']
+            'Ref_base', 'Counts', 'TPM', 'geneID', 'txID', 'txBiotype', 'Dist', "Signal_Ratio"]
 df2 = df.filter(
     (pl.col("A") >= args.Acov) & (pl.col("FDR") < args.FDR) & (pl.col("Signal_Ratio") >= args.Signal_Ratio) & (pl.col("AG_Ratio") >= args.AG_Ratio)
 ).select(pl.col(used_col))

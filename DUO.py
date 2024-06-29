@@ -57,6 +57,7 @@ group_m6Am.add_argument("-adp", "--FDR", type=float, default=0.001, help="[Both]
 group_m6Am.add_argument("-ta", "--tssanno", type=str, help="[m6Am] Annotation of TSS range")
 group_m6Am.add_argument("--tpm", type=float, default=1.0, help="[m6Am] minimum TPM value for TSS, default is 1.0")
 group_m6Am.add_argument("--absDist", type=int, default=1000, help="[m6Am] maximum absolute distance to any annotated TSS from GTF file, default is 1000")
+group_m6Am.add_argument("--prop", type=float, default=0.05, help="[m6Am] minimum proportion relative to the total TPM of a gene")
 group_m6Am.add_argument("--zscore", type=float, default=1.0, help="[m6Am] minimum Z-score (calculated within a gene) for TSS, default is 1.0")
 group_m6Am.add_argument("-ba", "--baseanno", type=str, help="[m6A] Annotations at single-base resolution")
 group_m6Am.add_argument("-r", "--methyl_Ratio", type = float, default=0.1, help="[m6A] minimum m6A level")
@@ -162,9 +163,10 @@ def fun_m6Am(bam, prx, args):
 
     ftss_clean=site_dir + prx + "_TSS.bed"
     run_cmd("python " + args.DUOdir + "/Call_m6Am/anno_TSS.py -i " + ftss_anno + " -o " + ftss_clean + \
-        " --cov " + str(args.cov) + " --tpm " + str(args.tpm) + \
-        " --absDist " + str(args.absDist) + " --zscore " + str(args.zscore))
-    run_cmd("rm -rf " + ftss_anno + " " + ftss_anno + ".rmdup")
+        " -c " + str(args.cov) + " --tpm " + str(args.tpm) + \
+        " --absDist " + str(args.absDist) + " --prop " + str(args.prop) + " --zscore " + str(args.zscore))
+    run_cmd("rm -rf " + ftss_anno)
+    run_cmd("mv " + ftss_anno + ".rmdup " + site_dir + "/intermediate/")
     
     if not args.untreated:
         # pile ATCG
@@ -174,8 +176,8 @@ def fun_m6Am(bam, prx, args):
         # call m6Am
         fm6Am=site_dir + prx + "_m6Am_sites.tsv"
         run_cmd("python " + args.DUOdir + "/Call_m6Am/m6Am_caller.py -i " + fAGcount + " -o " + fm6Am + \
-            " --Acov " + str(args.Acov) + " --FDR " + str(args.FDR) + \
-            " --Signal_Ratio " + str(args.Signal_Ratio) + " --AG_Ratio " + str(args.AG_Ratio))
+            " -C " + str(args.Acov) + " -adp " + str(args.FDR) + \
+            " -s " + str(args.Signal_Ratio) + " -R " + str(args.AG_Ratio))
         
         run_cmd("mv " + fAGcount + " " + site_dir + prx + "_m6Am_sites_raw.tsv " + site_dir + "/intermediate/")
     
@@ -266,7 +268,7 @@ def main(args):
         if args.raw_fq is None:
             raise ValueError("Raw fastq files must be provided if run preprocessing!")
         if args.prx is None:
-            prx=re.match("(.*/)?([^/]+)_[LS][1-9]+_(R)?[12].f(ast)?q(.gz)?$", args.raw_fq).group(2)
+            prx=re.match("(.*/)?([^/]+)_[LS][0-9]+_(R)?[12].f(ast)?q(.gz)?$", args.raw_fq).group(2)
         else:
             prx=args.prx
         fun_pre(args.raw_fq, prx, args)

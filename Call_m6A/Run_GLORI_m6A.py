@@ -54,10 +54,10 @@ def get_sites(total_mpi, chr):
         subprocess.call("python " + DUOdir + "m6A_pileup_formatter.py " + " -i " + file_mpi + " -o " + file_format + " --CR " + file_CR,
             shell=True)
     print("python "+DUOdir+"m6A_caller.py -i "+file_format + " -o " + file_sites +" -c " + Cov +" -C "+ Counts + " -r "\
-                    + minRatio +" -p "+pvalue+" -s "+multiAratio+" -R "+AGRatio +" --cutoff " + Acutoffs +" --CR "+ \
+                    + minRatio + " -s "+multiAratio+" -R "+AGRatio +" --cutoff " + Acutoffs +" --CR "+ \
                     background+" --method " + statmethod + " -g " + geneCR)
     subprocess.call("python "+DUOdir+"m6A_caller.py -i "+file_format + " -o " + file_sites +" -c " + Cov +" -C "+ Counts + " -r "\
-                    + minRatio +" -p "+pvalue+" -s "+multiAratio+" -R "+AGRatio +" --cutoff " + Acutoffs +" --CR "+ \
+                    + minRatio + " -s "+multiAratio+" -R "+AGRatio +" --cutoff " + Acutoffs +" --CR "+ \
                     background+" --method " + statmethod + " -g " + geneCR,shell=True)
 
 
@@ -127,6 +127,8 @@ def run_command(total_mpi, Threads):
             CR2 = CR1[~CR1['SA'].isin(['#90%', '#75%', '#50%', '#25%', '#10%', '#Mean'])]  # only keep rows to "#ALL" and "#Median"
             CR2.iloc[0, 0] += "_" + chr_x  # rows "#ALL"
             CR2.iloc[1, 0] += "_" + chr_x  # rows "#Median"
+            CR2.iloc[1, 3] = CR2.iloc[1, 1]
+            CR2.iloc[1, 1] = float("nan")
             pd_CR = pd.concat([pd_CR, CR2])
 
     # whole transcriptome
@@ -180,8 +182,8 @@ if __name__ == "__main__":
     group_site.add_argument("-c", "--coverage", dest="coverage", default='15', type=str, help="A+G coverage")
     group_site.add_argument("-C", "--count", dest="count", default='5', type=str,help="A coverage")
     group_site.add_argument("-r", "--ratio", dest="ratio", default='0.1', type=str, help="m6A level or A rate")
-    group_site.add_argument("-p", "--pvalue", dest="pvalue", default='0.005', type=str, help="P-value cutoff for statistical test")
-    group_site.add_argument("-adp", "--adjustpvalue", dest="adjustpvalue", default='0.005', type=str, help="Cutoff for FDR-adjusted p-value")
+    group_site.add_argument("-adp", "--adjustpvalue", dest="adjustpvalue", default='0.05', type=str, 
+                            help="Cutoff for FDR-adjusted p-value, default is 0.05")
     group_site.add_argument("-s", "--signal", dest="signal", default='0.8', type=str,
                             help="signal ratio, The reads coverage (below the A-cutoff) divided by the total coverage \
                             is used to exclude false positives located in regions resistant to nitrite treatment")
@@ -208,7 +210,7 @@ if __name__ == "__main__":
 
     options = parser.parse_args()
     global outputdir,Threads,baseanno,prx,outputprefix,Mapping,Pileup,Callsite
-    global Cov,Counts,minRatio,pvalue,adjP,multiAratio,AGRatio,geneCR,AG_number_gene,statmethod,background,NAbackground,Acutoffs
+    global Cov,Counts,minRatio,adjP,multiAratio,AGRatio,geneCR,AG_number_gene,statmethod,background,NAbackground,Acutoffs
     DUOdir = os.path.dirname(__file__)+"/"
     outputdir = options.outputdir
     Threads = options.Threads
@@ -217,7 +219,6 @@ if __name__ == "__main__":
     Cov = options.coverage
     Counts = options.count
     minRatio = options.ratio
-    pvalue = options.pvalue
     adjP=options.adjustpvalue
     multiAratio = options.signal
     AGRatio = options.var_ratio

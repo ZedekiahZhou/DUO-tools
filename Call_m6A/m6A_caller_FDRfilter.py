@@ -68,7 +68,7 @@ if __name__ == "__main__":
     group_required.add_argument("-i", "--file", dest="file", required=True, help="file1")
     group_required.add_argument("-o", "--output", dest="output", required=True,
                                 help="output prefix. file names are [prefix].[A-cutoff].txt")
-    group_required.add_argument("-adp", "--adjustpvalue", dest="adjustpvalue", default=0.005, type=float, help="adjustpvalue, default=0.05")
+    group_required.add_argument("-adp", "--adjustpvalue", dest="adjustpvalue", default=0.05, type=float, help="adjustpvalue, default=0.05")
 
     options = parser.parse_args()
 

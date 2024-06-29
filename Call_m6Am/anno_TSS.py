@@ -4,9 +4,10 @@ import sys, argparse
 parser = argparse.ArgumentParser(description="Annotate transcription start sites (TSSs)")
 parser.add_argument("-i", "--input", type=str, required=True, help="Input TSS annotation files from bedtools intersect")
 parser.add_argument("-o", "--output", type=str, required=True, help="output file name")
-parser.add_argument("--cov", type=int, default=15, help='minimum A+G coverage for TSS, default is 15')
+parser.add_argument("-c", "--cov", type=int, default=15, help='minimum A+G coverage for TSS, default is 15')
 parser.add_argument("--tpm", type=float, default=1.0, help="minimum TPM value for TSS, default is 1.0")
 parser.add_argument("--absDist", type=int, default=1000, help="maximum absolute distance to any annotated TSS from GTF file, default is 1000")
+parser.add_argument("--prop", type=float, default=0.05, help="minimum proportion relative to the total TPM of a gene")
 parser.add_argument("--zscore", type=float, default=1.0, help="minimum Z-score (calculated within a gene) for TSS, default is 1.0")
 args = parser.parse_args()
 
@@ -63,23 +64,13 @@ def main():
         pl.col("meanTPM").round(3),
         pl.col("stdTPM").round(3)
     )
-    # df_rmdup = df_rmdup.with_columns(
-    #     pl.col("TPM").sum().over("geneID").alias("totalTPM"),
-    #     pl.col("TPM").count().over("geneID").alias("nTSS")
-    # ).with_columns(
-    #     (pl.col("TPM")/pl.col("totalTPM")).alias("relSum"),
-    #     pl.when(pl.col("TPM").count() <= 2)
-    #     .then(pl.lit(99))
-    #     .otherwise(((pl.col("TPM") - pl.col("TPM").mean()) / pl.col("TPM").std()))
-    #     .over("geneID")
-    #     .alias("zscore")
-    # )
 
     df_rmdup.write_csv(frmdup, separator="\t")
 
     # filter TSS
     df_clean = df_rmdup.filter(
-        (pl.col("Counts") >= args.cov) & (pl.col("TPM") >= args.tpm) & (pl.col("absDist") <= args.absDist) & (pl.col("zscore") > args.zscore)
+        (pl.col("Counts") >= args.cov) & (pl.col("TPM") >= args.tpm) & (pl.col("absDist") <= args.absDist) & \
+             (pl.col("zscore") > args.zscore) & (pl.col("relSum") > args.prop)
     )
     df_clean.write_csv(args.output, separator="\t")
 
