@@ -3,12 +3,7 @@ import sys, argparse
 
 parser = argparse.ArgumentParser(description="Annotate transcription start sites (TSSs)")
 parser.add_argument("-i", "--input", type=str, required=True, help="Input TSS annotation files from bedtools intersect")
-parser.add_argument("-o", "--output", type=str, required=True, help="output file name")
-parser.add_argument("-c", "--cov", type=int, default=15, help='minimum A+G coverage for TSS, default is 15')
-parser.add_argument("--tpm", type=float, default=1.0, help="minimum TPM value for TSS, default is 1.0")
-parser.add_argument("--absDist", type=int, default=1000, help="maximum absolute distance to any annotated TSS from GTF file, default is 1000")
-parser.add_argument("--prop", type=float, default=0.05, help="minimum proportion relative to the total TPM of a gene")
-parser.add_argument("--zscore", type=float, default=1.0, help="minimum Z-score (calculated within a gene) for TSS, default is 1.0")
+parser.add_argument("-o", "--output", type=str, required=False, help="output file name, default is input.rmdup")
 args = parser.parse_args()
 
 
@@ -16,13 +11,16 @@ priorities = {"snRNA":0, "snoRNA":1, "protein_coding":2, "miRNA":3, "lncRNA": 4}
 
 def main():
     global args, priorities
-    frmdup=args.input + ".rmdup"
+    if args.output is None:
+        args.output=args.input + ".rmdup"
 
-    df = pl.read_csv(args.input, separator="\t", has_header=False)
+    df = pl.read_csv(args.input, separator="\t", has_header=False, null_values=".")
     colname = ["Chr", "Start", "End", "ID", "Counts", "Strand", "Base", "TPM", "DBname",
             "txChr", "txStart", "txEnd", "geneID", "txID", "txStrand", "txTSS", 
             "geneBiotype", "txBiotype"]
     df.columns = colname if df.shape[1] == 18 else colname[:8] + colname[9:]
+    if "DBname" in df.columns:
+        df = df.select(pl.col("*").exclude("DBname"))
 
     def get_pri(s: str) -> int:
         pri = priorities.get(s)
@@ -65,14 +63,8 @@ def main():
         pl.col("stdTPM").round(3)
     )
 
-    df_rmdup.write_csv(frmdup, separator="\t")
+    df_rmdup.write_csv(args.output, separator="\t",null_value=".")
 
-    # filter TSS
-    df_clean = df_rmdup.filter(
-        (pl.col("Counts") >= args.cov) & (pl.col("TPM") >= args.tpm) & (pl.col("absDist") <= args.absDist) & \
-             (pl.col("zscore") > args.zscore) & (pl.col("relSum") > args.prop)
-    )
-    df_clean.write_csv(args.output, separator="\t")
 
 if __name__ == '__main__':
     main()

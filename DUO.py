@@ -6,7 +6,8 @@ Email: zzhou24@pku.edu.cn
 Program: This program is used for DUO-seq analysis
 Version: 1.0.0
 ToDo: 
-    1. add mode QC!!!!!!
+    1. rm 5p 1st base for m6A
+    2. count m6Am on all TSS
 """
 
 import argparse, subprocess, re, os, time, sys
@@ -17,9 +18,10 @@ group_global = parser.add_argument_group("Global")
 group_global.add_argument("--mode", type=str, default="m6Am", choices=["m6Am", "m6A"], 
                           help="run in m6Am or m6A mode, default is m6Am")
 group_global.add_argument("--module", type=str, default=None, 
-                          help="""the module(s) to run: [preprocessing, mapping, call_m6Am, call_m6A or QC]; 
-                            separated by comma if run multiple modules, default is running the whole pipeline""")
-group_global.add_argument("--untreated", action="store_true", help="untreated samaples (only preprocessing and mapping)")
+                          help="the module(s) to run: [preprocessing, mapping, call_m6Am, call_m6A or QC]; \
+                            separated by comma if run multiple modules, default is running the whole pipeline")
+group_global.add_argument("--untreated", action="store_true", 
+                          help="untreated samaples (only preprocessing and mapping)")
 group_global.add_argument("--raw_fq", type=str, help="raw fastq(.gz) file")
 group_global.add_argument("--clean_fq", type=str, help="clean fastq file for mapping")
 group_global.add_argument("--bam", type=str, help="merged sorted bam files")
@@ -30,35 +32,46 @@ group_global.add_argument("-p", "--threads", type=int, default=20, help="threads
 group_global.add_argument("--test", action="store_true", help="only print commands to run")
 
 group_preprocessing = parser.add_argument_group("Preprocessing")
-group_preprocessing.add_argument("--umi5", dest="umi5", type=int, default=0, help="length of bases to removed from 5 prime of the reads, default is 0")
-group_preprocessing.add_argument("--umi3", dest="umi3", type=int, default=0, help="length of bases to removed from 5 prime of the reads, default is 0")
-group_preprocessing.add_argument("-m", "--min_len", type=int, default=25, help="discard reads that bacame shorter than min_len before mapping")
-group_preprocessing.add_argument("--fastqc", dest="fastqc", type=bool, default=True, help="whether to run fastqc, default is True")
+group_preprocessing.add_argument("--umi5", dest="umi5", type=int, default=0, 
+                                 help="length of bases to removed from 5 prime of the reads, default is 0")
+group_preprocessing.add_argument("--umi3", dest="umi3", type=int, default=0, 
+                                 help="length of bases to removed from 5 prime of the reads, default is 0")
+group_preprocessing.add_argument("-m", "--min_len", type=int, default=25, 
+                                 help="discard reads that bacame shorter than min_len before mapping")
+group_preprocessing.add_argument("--fastqc", dest="fastqc", type=bool, default=True, 
+                                 help="whether to run fastqc, default is True")
 group_preprocessing.add_argument("--tag_seq", dest="tag_seq", type=str, default="TGACGCTGCCGACGATC", 
                                  help="tag sequence ligated to 5' ends of TSS, default is TGACGCTGCCGACGATC")
 
 group_mapping = parser.add_argument_group("Mapping")
 group_mapping.add_argument("-f", "--reference", nargs="?", help="Index file for the plus strand of the genome")
-group_mapping.add_argument("-f2", "--reference2", nargs="?", help="Index file for the unchanged genome")
+group_mapping.add_argument("-f2", "--reference2", nargs="*", help="Index file for the unchanged genome")
 group_mapping.add_argument("-rvs", "--rvsref", nargs="?", help = "Index file for the minus strand of the genome")
 group_mapping.add_argument("-Tf", "--transref", nargs="?", help="Index file for the minus strand of the transcriptome")
 group_mapping.add_argument("-a", "--anno", nargs="?", help="Annotation file within exons")
     
 group_m6Am = parser.add_argument_group("Call m6Am or m6A")
-group_m6Am.add_argument("-ds", "--ds2N", type=int, default=None, help="[Both] Downsample the merged sorted bam files to N reads, default is no downsample.")
+group_m6Am.add_argument("-ds", "--ds2N", type=int, default=None, 
+                        help="[Both] Downsample the merged sorted bam files to N reads, default is no downsample.")
 
-group_m6Am.add_argument("-c", "--cov", type=int, default=15, help='[Both] minimum A+G coverage for TSS or m6A sites, default is 15')
-group_m6Am.add_argument("-C", "--Acov", type=int, default=5, help='[Both] minimum A coverage for m6A(m) sites, default is 5')
+group_m6Am.add_argument("-c", "--cov", type=int, default=15, 
+                        help='[Both] minimum A+G coverage for TSS or m6A sites, default is 15')
+group_m6Am.add_argument("-C", "--Acov", type=int, default=5, 
+                        help='[Both] minimum A coverage for m6A(m) sites, default is 5')
 group_m6Am.add_argument("-s", "--Signal_Ratio", type=float, default=0.8, 
-                    help="[Both] minimum ratio of signal reads (eg. reads with unconverted As less than 3), default is 0.8")
+                        help="[Both] minimum ratio of signal reads (eg. reads with unconverted As less than 3), \
+                            default is 0.8")
 group_m6Am.add_argument("-R", "--AG_Ratio", type=float, default=0.8, 
                     help="[Both] minimum ratio of (A+G reads)/total in this sites, default is 0.8")
 group_m6Am.add_argument("-adp", "--FDR", type=float, default=0.001, help="[Both] FDR cutoff, default is 0.001")
-group_m6Am.add_argument("-ta", "--tssanno", type=str, help="[m6Am] Annotation of TSS range")
+group_m6Am.add_argument("-ta", "--tssanno", nargs="*", type=str, help="[m6Am] Annotation of TSS range")
 group_m6Am.add_argument("--tpm", type=float, default=1.0, help="[m6Am] minimum TPM value for TSS, default is 1.0")
-group_m6Am.add_argument("--absDist", type=int, default=1000, help="[m6Am] maximum absolute distance to any annotated TSS from GTF file, default is 1000")
-group_m6Am.add_argument("--prop", type=float, default=0.05, help="[m6Am] minimum proportion relative to the total TPM of a gene")
-group_m6Am.add_argument("--zscore", type=float, default=1.0, help="[m6Am] minimum Z-score (calculated within a gene) for TSS, default is 1.0")
+group_m6Am.add_argument("--absDist", type=int, default=1000, 
+                        help="[m6Am] maximum absolute distance to any annotated TSS from GTF file, default is 1000")
+group_m6Am.add_argument("--prop", type=float, default=0.05,
+                        help="[m6Am] minimum proportion relative to the total TPM of a gene")
+group_m6Am.add_argument("--zscore", type=float, default=1.0,
+                        help="[m6Am] minimum Z-score (calculated within a gene) for TSS, default is 1.0")
 group_m6Am.add_argument("-ba", "--baseanno", type=str, help="[m6A] Annotations at single-base resolution")
 group_m6Am.add_argument("-r", "--methyl_Ratio", type = float, default=0.1, help="[m6A] minimum m6A level")
 
@@ -84,14 +97,16 @@ def fun_pre(raw_fq, prx, args):
     print("\n[%s] Preprocessing ========" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
 
     if args.fastqc:
-        if not args.test: subprocess.call("mkdir -p " + args.outdir +"/fastqc/raw " + args.outdir + "/fastqc/clean", shell=True)
+        if not args.test: 
+            subprocess.call("mkdir -p " + args.outdir +"/fastqc/raw " + args.outdir + "/fastqc/clean", shell=True)
         run_cmd("fastqc "+ raw_fq + " --thread " + str(args.threads) + " -q -o " + args.outdir +"/fastqc/raw")
 
     clean_dir=args.outdir + "/02_Clean/"
 
     # trim adapter
     cutoff_len1=args.umi5+args.umi3
-    run_cmd("trim_galore -q 20 -j 7 --stringency 1 -e 0.3 --length " + str(cutoff_len1) + " -o " + clean_dir + " " + raw_fq)
+    run_cmd("trim_galore -q 20 -j 7 --stringency 1 -e 0.3 --length " + str(cutoff_len1) + 
+            " -o " + clean_dir + " " + raw_fq)
 
     tmpfile=clean_dir + re.match(".+/([^/]+).f(ast)?q(.gz)?$", raw_fq).group(1) + "_trimmed.fq.gz"
     trimmed_fq=clean_dir + prx + "_trimmed.fq.gz"
@@ -99,13 +114,14 @@ def fun_pre(raw_fq, prx, args):
 
     # remove duplicates and umi
     rmdup_fq=clean_dir + prx + "_rmdup.fq.gz"
-    run_cmd("seqkit rmdup -j 10 -s " + trimmed_fq + " | fastx_trimmer -Q 33 -f " + str(args.umi5+1) + " -z -o " + rmdup_fq)
+    run_cmd("seqkit rmdup -j 10 -s " + trimmed_fq + " | fastx_trimmer -Q 33 -f " + str(args.umi5+1) + \
+            " -z -o " + rmdup_fq)
 
     # remove tag
     clean_fq=clean_dir + prx + "_clean.fq"
     tag_info=clean_dir + prx + "_rmtag.info"
-    cmd='cutadapt -j 0 -g "' + args.tag_seq + ';rightmost" -m ' + str(args.min_len) + ' -O ' + str(len(args.tag_seq)) + \
-        ' -e 0.2 -o ' + clean_fq + ' --info-file ' + tag_info + ' ' + rmdup_fq
+    cmd='cutadapt -j 0 -g "' + args.tag_seq + ';rightmost" -m ' + str(args.min_len) + \
+        ' -O ' + str(len(args.tag_seq)) + ' -e 0.2 -o ' + clean_fq + ' --info-file ' + tag_info + ' ' + rmdup_fq
     if args.mode == "m6Am":
         cmd = cmd + ' --discard-untrimmed'
     run_cmd(cmd)
@@ -126,10 +142,13 @@ def fun_mapping(clean_fq, prx, args):
         " -f " + args.reference + " -pre " + prx + " -o " + site_dir
     if args.untreated:
         cmd=cmd_prx + " -Tf " + args.transref + " -a " + args.anno + " --combine --untreated"
+        run_cmd(cmd)
     else:
-        cmd=cmd_prx + " -f2 " + args.reference2 + " -rvs " + args.rvsref+ " -Tf " + args.transref + " -a " + args.anno + " --combine --rvs_fac"
-    run_cmd(cmd)
-    run_cmd("mv " + site_dir + prx + "_A.bed_sorted " + site_dir + prx + "_AGchanged_2.fq " + site_dir + "/intermediate/")
+        cmd=cmd_prx + " -f2 " + " ".join(args.reference2) + " -rvs " + args.rvsref+ " -Tf " + args.transref + \
+            " -a " + args.anno + " --combine --rvs_fac"
+        run_cmd(cmd)
+        run_cmd("mv " + site_dir + prx + "_A.bed_sorted " + site_dir + prx + "_AGchanged_2.fq " + \
+                site_dir + "/intermediate/")
 
 
 def fun_m6Am(bam, prx, args):
@@ -154,34 +173,35 @@ def fun_m6Am(bam, prx, args):
 
     # call TSS
     ftss=site_dir + prx + "_TSS_raw.bed"
-    run_cmd("python " + args.DUOdir + "/Call_m6Am/get_TSS.py -r " + args.reference2 + " -b " + bam + " -o " + ftss)
+    run_cmd("python " + args.DUOdir + "/Call_m6Am/get_TSS.py -r " + " ".join(args.reference2) + " -b " + bam + " -o " + ftss)
 
     # annotate TSS
     ftss_anno=site_dir + prx + "_TSS_raw.bed.annotated"
-    run_cmd("bedtools intersect -a " + ftss + " -b " + args.tssanno + " -s -wa -wb > " + ftss_anno)
-    run_cmd("mv " + ftss + " " + site_dir + "/intermediate/")
+    run_cmd("bedtools intersect -a " + ftss + " -b " + " ".join(args.tssanno) + " -s -wa -wb -loj > " + ftss_anno)
+    run_cmd("python " + args.DUOdir + "/Call_m6Am/anno_TSS.py -i " + ftss_anno)
 
-    ftss_clean=site_dir + prx + "_TSS.bed"
-    run_cmd("python " + args.DUOdir + "/Call_m6Am/anno_TSS.py -i " + ftss_anno + " -o " + ftss_clean + \
-        " -c " + str(args.cov) + " --tpm " + str(args.tpm) + \
-        " --absDist " + str(args.absDist) + " --prop " + str(args.prop) + " --zscore " + str(args.zscore))
-    run_cmd("rm -rf " + ftss_anno)
-    run_cmd("mv " + ftss_anno + ".rmdup " + site_dir + "/intermediate/")
-    
     if not args.untreated:
         # pile ATCG
         fAGcount=site_dir + prx + "_AGcount.tsv"
-        run_cmd("python " + args.DUOdir + "/Call_m6Am/pileup_reads5p.py -r " + args.reference2 + " -l " + ftss_clean + " -o " + fAGcount + " -b " + bam)
+        run_cmd("python " + args.DUOdir + "/Call_m6Am/pileup_reads5p.py -r " + " ".join(args.reference2) + \
+                " -l " + ftss_anno + ".rmdup -o " + fAGcount + " -b " + bam)
 
         # call m6Am
-        fm6Am=site_dir + prx + "_m6Am_sites.tsv"
-        run_cmd("python " + args.DUOdir + "/Call_m6Am/m6Am_caller.py -i " + fAGcount + " -o " + fm6Am + \
-            " -C " + str(args.Acov) + " -adp " + str(args.FDR) + \
-            " -s " + str(args.Signal_Ratio) + " -R " + str(args.AG_Ratio))
         
-        run_cmd("mv " + fAGcount + " " + site_dir + prx + "_m6Am_sites_raw.tsv " + site_dir + "/intermediate/")
+        run_cmd("python " + args.DUOdir + "/Call_m6Am/m6Am_caller.py -i " + fAGcount)
+        # fm6Am=site_dir + prx + "_m6Am_sites.tsv"
+        # run_cmd("python " + args.DUOdir + "/Call_m6Am/m6Am_caller.py -i " + fAGcount + " -o " + fm6Am + \
+        #     " -C " + str(args.Acov) + " -adp " + str(args.FDR) + \
+        #     " -s " + str(args.Signal_Ratio) + " -R " + str(args.AG_Ratio) + \
+        #     " -c " + str(args.cov) + " --tpm " + str(args.tpm) + \
+        #     " --absDist " + str(args.absDist) + " --prop " + str(args.prop) + " --zscore " + str(args.zscore))
+        
+        #run_cmd("mv " + fAGcount + " " + site_dir + prx + "_m6Am_sites_raw.tsv " + site_dir + "/intermediate/")
     
-
+    run_cmd("rm -rf " + ftss_anno)
+    run_cmd("mv " + ftss + " " + site_dir + "/intermediate/")
+    #run_cmd("mv " + ftss_anno + ".rmdup " + site_dir + "/intermediate/")
+    
 
 def fun_m6A(bam, prx, args):
     """
@@ -205,7 +225,7 @@ def fun_m6A(bam, prx, args):
     
     # pileup
     run_cmd("python " + args.DUOdir + "/Call_m6A/Run_GLORI_pileup.py --bam " + bam + " -T " + str(args.threads) + \
-        " -f " + args.reference + " -f2 " + args.reference2 + " -pre " + prx + " -o " + site_dir)
+        " -f " + args.reference + " -f2 " + " ".join(args.reference2) + " -pre " + prx + " -o " + site_dir)
 
     # call m6A
     fmpi=site_dir + prx + ".referbase.mpi"
