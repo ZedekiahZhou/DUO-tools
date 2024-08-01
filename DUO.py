@@ -187,7 +187,6 @@ def fun_m6Am(bam, prx, args):
                 " -l " + ftss_anno + ".rmdup -o " + fAGcount + " -b " + bam)
 
         # call m6Am
-        
         run_cmd("python " + args.DUOdir + "/Call_m6Am/m6Am_caller.py -i " + fAGcount)
         # fm6Am=site_dir + prx + "_m6Am_sites.tsv"
         # run_cmd("python " + args.DUOdir + "/Call_m6Am/m6Am_caller.py -i " + fAGcount + " -o " + fm6Am + \

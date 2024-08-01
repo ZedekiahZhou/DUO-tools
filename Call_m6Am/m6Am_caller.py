@@ -11,7 +11,7 @@ History:
 # args
 parser = argparse.ArgumentParser(description="call m6Am sites from AGcounts file")
 parser.add_argument("-i", "--input", type=str, required=True, help="AGcounts file from pileup_reads5p.py")
-parser.add_argument("-o", "--output", type=str, required=True, help="output file name")
+parser.add_argument("-o", "--output", type=str, required=False, help="output file name")
 # parser.add_argument("-C", "--Acov", type=int, default=5, help='minimum A coverage for m6Am sites, default is 5')
 # parser.add_argument("-adp", "--FDR", type=float, default=0.05, help="FDR cutoff, default is 0.05")
 # parser.add_argument("-s", "--Signal_Ratio", type=float, default=0.8, 

@@ -66,7 +66,8 @@ for i in range(len(args.inputs)):
         tss_merged = tss
     else:
         tss_merged = tss_merged.join(
-            tss, on=["Chr", "End", "Strand", "Base", "geneID", "txID", "Dist", "txBiotype"], how="outer", coalesce=True
+            tss.select(pl.exclude(["geneID", "txID", "Dist", "txBiotype"])), 
+            on=["Chr", "End", "Strand", "Base"], how="outer", coalesce=True
         )
 
 # Keep sites passed in any sample
@@ -75,45 +76,48 @@ tss_merged = tss_merged.fill_null(False).with_columns(
     pl.fold(acc=pl.lit(False), function=lambda acc, x: acc | x, exprs=pl.col("^Passed_.*$")).alias("Passed")
 ).filter(
     pl.col("Passed")
-)
+).sort(["Chr", "Pos"])
 
 tss_merged.write_csv(args.output + "_TSS_merged.tsv" , separator='\t', null_value=".")
 
 
-# m6Am_merged = tss_merged.select(
-#     pl.col("Chr", "End", "Strand", "Base", "geneID", "txID", "Dist")
-# )
 ## II. merged m6Am sites
 if not args.untreated:
     print("Merge m6Am sites: ", flush=True)
     for i in range(len(args.inputs)):
         print("Read sample " + prx[i], flush=True)
 
-        m6Am = pl.read_csv(args.inputs[i].replace("_TSS_raw.bed.annotated.rmdup", "_m6Am_sites_raw.tsv"), 
-                           separator="\t", null_values=".")
+        m6Am = pl.read_csv(
+            args.inputs[i].replace("_TSS_raw.bed.annotated.rmdup", "_m6Am_sites_raw.tsv"), 
+            separator="\t", null_values="."
+        )
         if "Signal_Ratio" not in m6Am.columns:
             m6Am = m6Am.with_columns(pl.lit(1).alias("Signal_Ratio"))
 
-        filter_m6Am_merged = tss_merged.select(
-            pl.col("Chr", "Pos", "Strand", "Passed_"+prx[i])
-        ).join(
-            m6Am_merged, on = ["Chr", "Pos", "Strand"], how="inner"
+        m6Am = m6Am.join(
+            tss_merged.select(
+                pl.col("Chr", "Pos", "Strand", "Passed_"+prx[i])
+            ), 
+            on = ["Chr", "Pos", "Strand"], how="left"
         )
-        
-        m6Am = m6Am.select(
+
+        m6Am=m6Am.select(
             pl.col("Chr", "Pos", "Strand"),
+            pl.col("Ref_base").alias("Base"),
+            pl.col("geneID", "txID", "Dist", "txBiotype"),
             pl.col("AG_cov").alias("AGcov_"+prx[i]),
             pl.col("A").alias("Acov_"+prx[i]),
-            ((pl.col("AG_cov") >= args.AGcov) & (pl.col("TPM") >= args.tpm) & (pl.col("Dist") <= args.absDist) & \
-            (pl.col("Signal_Ratio") >= args.Signal_Ratio) & (pl.col("A") >= args.Acov) & \
-            (pl.col("FDR") < args.FDR)).alias("Passed_"+prx[i])
+            ((pl.col("Passed_"+prx[i])) & (pl.col("AG_cov") >= args.AGcov) & (pl.col("A") >= args.Acov) & \
+            (pl.col("Signal_Ratio") >= args.Signal_Ratio) & (pl.col("AG_Ratio") >= args.AG_Ratio) & \
+            (pl.col("FDR") < args.FDR))
         )
 
         if i == 0:
             m6Am_merged = m6Am
         else:
             m6Am_merged = m6Am_merged.join(
-                m6Am, on=["Chr", "Pos", "Strand"], how="outer", coalesce=True
+                m6Am.select(pl.exclude(["geneID", "txID", "Dist", "txBiotype"])), 
+                on=["Chr", "Pos", "Strand", "Base"], how="outer", coalesce=True
             )
 
     # Keep sites passed in any sample
@@ -121,12 +125,6 @@ if not args.untreated:
         pl.fold(acc=pl.lit(False), function=lambda acc, x: acc | x, exprs=pl.col("^Passed_.*$")).alias("Passed")
     ).filter(
         pl.col("Passed")
-    )
+    ).sort(["Chr", "Pos"])
 
-    filter_m6Am_merged = tss_merged.select(
-            pl.col("Chr", "Pos", "Strand", "Base", "geneID", "txID", "Dist", "txBiotype")
-    ).join(
-        m6Am_merged, on = ["Chr", "Pos", "Strand"], how="inner"
-    )
-
-    filter_m6Am_merged.write_csv(args.output + "_m6Am_merged.tsv" , separator='\t', null_value=".")
+    m6Am_merged.write_csv(args.output + "_m6Am_merged.tsv" , separator='\t', null_value=".")

@@ -30,8 +30,7 @@ def main():
 
     # remove duplicate annotations
     df_rmdup = df.with_columns(
-        pl.col("txBiotype").map_elements(get_pri, return_dtype=pl.Int64).alias("Priorities")
-    ).with_columns(
+        pl.col("txBiotype").map_elements(get_pri, return_dtype=pl.Int64).alias("Priorities"),
         pl.when(pl.col("Strand") == "+")
         .then(pl.col("End")-pl.col("txTSS"))
         .otherwise(pl.col("txTSS")-pl.col("End"))
@@ -43,7 +42,7 @@ def main():
     ).sort("ID")
 
     # group sum, mean, and std
-    df_agg=df.group_by("geneID").agg(
+    df_agg=df_rmdup.group_by("geneID").agg(
         pl.col("TPM").sum().alias("raw_totalTPM"),
         pl.col("TPM").count().alias("raw_nTSS"),
         pl.col("TPM").mean().alias("meanTPM"),
