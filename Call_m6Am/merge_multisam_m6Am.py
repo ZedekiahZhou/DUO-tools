@@ -50,8 +50,9 @@ for i in range(len(args.inputs)):
     print("Read sample " + prx[i], flush=True)
 
     tss = pl.read_csv(args.inputs[i], separator="\t", null_values=".")
-    tss = tss.with_columns(
+    tss = tss.fill_null(".").with_columns(
         pl.col("absDist").fill_null(maxv),
+        pl.col("Dist").fill_null(maxv),
         pl.col("relSum").fill_null(-maxv),
         pl.col("zscore").fill_null(-maxv),
     ).select(
@@ -66,8 +67,10 @@ for i in range(len(args.inputs)):
         tss_merged = tss
     else:
         tss_merged = tss_merged.join(
-            tss.select(pl.exclude(["geneID", "txID", "Dist", "txBiotype"])), 
-            on=["Chr", "End", "Strand", "Base"], how="outer", coalesce=True
+            tss,
+            on=["Chr", "End", "Strand", "Base", "geneID", "txID", "Dist", "txBiotype"], how="outer", coalesce=True
+            #tss.select(pl.exclude(["geneID", "txID", "Dist", "txBiotype"])), 
+            #on=["Chr", "End", "Strand", "Base"], how="outer", coalesce=True
         )
 
 # Keep sites passed in any sample
@@ -101,7 +104,9 @@ if not args.untreated:
             on = ["Chr", "Pos", "Strand"], how="left"
         )
 
-        m6Am=m6Am.select(
+        m6Am=m6Am.fill_null(".").with_columns(
+            pl.col("Dist").fill_null(maxv)
+        ).select(
             pl.col("Chr", "Pos", "Strand"),
             pl.col("Ref_base").alias("Base"),
             pl.col("geneID", "txID", "Dist", "txBiotype"),
@@ -116,8 +121,10 @@ if not args.untreated:
             m6Am_merged = m6Am
         else:
             m6Am_merged = m6Am_merged.join(
-                m6Am.select(pl.exclude(["geneID", "txID", "Dist", "txBiotype"])), 
-                on=["Chr", "Pos", "Strand", "Base"], how="outer", coalesce=True
+                m6Am,
+                on=["Chr", "Pos", "Strand", "Base", "geneID", "txID", "Dist", "txBiotype"], how="outer", coalesce=True
+                #m6Am.select(pl.exclude(["geneID", "txID", "Dist", "txBiotype"])), 
+                #on=["Chr", "Pos", "Strand", "Base"], how="outer", coalesce=True
             )
 
     # Keep sites passed in any sample

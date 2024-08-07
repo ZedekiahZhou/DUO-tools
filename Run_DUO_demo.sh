@@ -3,30 +3,24 @@
 
 source /lustre2/chengqiyi_pkuhpc/zhouzhe/software/DUO/config/mm10.conf
 
-# run in m6Am mode
+# I. m6Am
+# single command
+python ${DUOdir}/DUO.py --raw_fq ${fastq_file} -o ../ --mode m6Am \
+    -f ${genome} -f2 ${genome2} -rvs ${rvsgenome} -Tf ${TfGenome} -a ${anno} -ta ${tssanno}
+
+# downsample to N reads after mapping
 python ${DUOdir}/DUO.py --raw_fq ${fastq_file} -o ../ --mode m6Am --module preprocessing,mapping \
     -f ${genome} -f2 ${genome2} -rvs ${rvsgenome} -Tf ${TfGenome} -a ${anno} -ta ${tssanno}
-python ${DUOdir}/DUO.py --bam ${bam_file} -o ../ --mode m6Am --module call_m6Am -ds 14000000 \
+python ${DUOdir}/DUO.py --bam ${bam_file} -o ../ --mode m6Am --module call_m6Am,QC -ds 14000000 \
     -f ${genome} -f2 ${genome2} -rvs ${rvsgenome} -Tf ${TfGenome} -a ${anno} -ta ${tssanno}
-# call all m6Am sites
-python ${DUOdir}/DUO.py --bam ${bam_file} -o ../ --mode m6Am --module call_m6Am -ds 14000000 \
-    -f ${genome} -f2 ${genome2} -rvs ${rvsgenome} -Tf ${TfGenome} -a ${anno} -ta ${tssanno} \
-    -c 1 -C 0 -adp 1.1 -s 0 --tpm 0 --prop 0 --zscore -999
 
-# m6Am untreated
-python ${DUOdir}/DUO.py --raw_fq ${file} -o ../ --mode m6Am --untreated \
-    -f ${genome} -Tf ${TfGenome} -a ${anno} --test
-
-
-# run in m6A mode
-python ${DUOdir}/DUO.py --raw_fq ${fastq_file} -o ../ --mode m6A --module preprocessing,mapping --umi5 3 \
-    -f ${genome} -f2 ${genome2} -rvs ${rvsgenome} -Tf ${TfGenome} -a ${anno}
-python ${DUOdir}/DUO.py --bam ${bam_file} -o ../ --mode m6A --module call_m6A -ds 14000000 \
+# II. m6A
+# single command (takara V2)
+python ${DUOdir}/DUO.py --raw_fq ${fastq_file} -o ../ --mode m6A --umi5 3 \
     -f ${genome} -f2 ${genome2} -rvs ${rvsgenome} -Tf ${TfGenome} -a ${anno} -ba ${baseanno}
 
-# m6A untreated
-python ${DUOdir}/DUO.py --raw_fq ${file} -o ../ --mode m6A --untreated \
-    --umi5 3 -f ${genome} -Tf ${TfGenome} -a ${anno}
-
-# call All A sites
-python ${DUOdir}/Call_m6A/Run_GLORI_m6A.py --mpi ${file} -T 20 -b ${baseanno} -c 1 -C 0 -r 0 -adp 1.1 -s 0 -pre ${prx} -o ../03_Sites/
+# downsample to N reads after mapping
+python ${DUOdir}/DUO.py --raw_fq ${fastq_file} -o ../ --mode m6A --module preprocessing,mapping --umi5 3 \
+    -f ${genome} -f2 ${genome2} -rvs ${rvsgenome} -Tf ${TfGenome} -a ${anno}
+python ${DUOdir}/DUO.py --bam ${bam_file} -o ../ --mode m6A --module call_m6A,QC -ds 14000000 \
+    -f ${genome} -f2 ${genome2} -rvs ${rvsgenome} -Tf ${TfGenome} -a ${anno} -ba ${baseanno}
