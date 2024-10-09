@@ -6,8 +6,8 @@ Email: zzhou24@pku.edu.cn
 Program: This program is used for DUO-seq analysis
 Version: 1.0.0
 ToDo: 
-    1. rm 5p 1st base for m6A
-    2. count m6Am on all TSS
+    1. m6A支持不去tag
+    2. m6A样本的所有点信息？怎么和merge结合
 """
 
 import argparse, subprocess, re, os, time, sys
@@ -19,7 +19,7 @@ group_global.add_argument("--mode", type=str, default="m6Am", choices=["m6Am", "
                           help="run in m6Am or m6A mode, default is m6Am")
 group_global.add_argument("--module", type=str, default=None, 
                           help="the module(s) to run: [preprocessing, mapping, call_m6Am, call_m6A or QC]; \
-                            separated by comma if run multiple modules, default is running the whole pipeline")
+                            separated by comma [no space] if run multiple modules, default is running the whole pipeline")
 group_global.add_argument("--untreated", action="store_true", 
                           help="untreated samaples (only preprocessing and mapping)")
 group_global.add_argument("--raw_fq", type=str, help="raw fastq(.gz) file")

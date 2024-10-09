@@ -55,8 +55,7 @@ for i in range(len(args.inputs)):
 df_merged = df_merged.fill_null(False).with_columns(
     pl.col("Sites").alias("Pos"),
     pl.fold(acc=pl.lit(False), function=lambda acc, x: acc | x, exprs=pl.col("^Passed_.*$")).alias("Passed")
-).filter(
-    pl.col("Passed")
 )
 
-df_merged.write_csv(args.output, separator='\t')
+df_merged.write_csv(args.output + ".raw", separator='\t')
+df_merged.filter(pl.col("Passed")).write_csv(args.output, separator='\t')

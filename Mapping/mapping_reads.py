@@ -68,6 +68,10 @@ outname_prx = args.outname_prefix
 
 re_digits = re.compile(r'(\d+)')
 
+def run_cmd(cmd):
+    print("--- [%s] " % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + cmd, flush=True)
+    subprocess.call(cmd, shell=True)
+
 def embedded_numbers(s):
     s2=s.strip().split("\t")
     pieces = re_digits.split(s2[0])
@@ -114,12 +118,10 @@ def mapping_files(tool,fastq,reference,Threads,muta_N,fqname,outputdir,mulMax,fl
     unmapfastq = outputdir +fqname+"_un_2.fq"
     if tool == "bowtie2":
         command = "bowtie2 --local --no-unal -p " + Threads + " -x "+reference + " -U "+fastq + " -S "+outputfile + " --un " + unmapfastq + " 2>" + outputfile + '.output'
-        print(command)
-        subprocess.call(command,shell=True)
-        print("samtools view -F " + flag + " -@ " + Threads+" -h " + outputfile + ' | samtools sort -n -O SAM > ' + outputfile + "_sorted.sam")
-        subprocess.call("samtools view -F " + flag + " -@ " + Threads+" -h " + outputfile + ' | samtools sort -n -O SAM > ' + outputfile + "_sorted.sam", shell=True)
-        print("mv -f " + outputfile + "_sorted.sam " + outputfile)
-        subprocess.call("mv -f " + outputfile + "_sorted.sam " + outputfile, shell=True)
+        run_cmd(command)
+        run_cmd("samtools view -F " + flag + " -@ " + Threads+" -h " + outputfile + 
+                " | samtools sort -n -O SAM > " + outputfile + "_sorted.sam")
+        run_cmd("mv -f " + outputfile + "_sorted.sam " + outputfile)
     elif tool == "bowtie":
         para_0 = 'bowtie -k 1 -m '+ str(mulMax)
         para_A = ' -v '+ str(muta_N)
@@ -128,12 +130,10 @@ def mapping_files(tool,fastq,reference,Threads,muta_N,fqname,outputdir,mulMax,fl
         para_unmap = ' --un ' + unmapfastq
         para_end = ' 2>' + outputfile +'.output'
         command = para_0+para_A+para_B+para_C+para_unmap+para_end
-        print(command)
-        subprocess.call(command,shell=True)
-        print("samtools view -F " + flag + " -@ " + Threads+" -h " + outputfile + ' | samtools sort -n -O SAM > ' + outputfile + "_sorted.sam")
-        subprocess.call("samtools view -F " + flag + " -@ " + Threads+" -h " + outputfile + ' | samtools sort -n -O SAM > ' + outputfile + "_sorted.sam", shell=True)
-        print("mv -f " + outputfile + "_sorted.sam " + outputfile)
-        subprocess.call("mv -f " + outputfile + "_sorted.sam " + outputfile, shell=True)
+        run_cmd(command)
+        run_cmd("samtools view -F " + flag + " -@ " + Threads+" -h " + outputfile +
+                " | samtools sort -n -O SAM > " + outputfile + "_sorted.sam")
+        run_cmd("mv -f " + outputfile + "_sorted.sam " + outputfile)
     elif tool == "STAR":
         para_0 = "STAR --runThreadN "+ Threads
         para_g = " --genomeDir "+ reference[:-3]
@@ -148,24 +148,21 @@ def mapping_files(tool,fastq,reference,Threads,muta_N,fqname,outputdir,mulMax,fl
         para_E = " --outFileNamePrefix " + outputfile[:-3] + " --readFilesIn " + fastq
         para_unmap = " --outSAMunmapped Within --outReadsUnmapped Fastx"
         line_command = para_0+para_g+para_A+para_B+para_B_2+para_B_3+para_C+para_D+para_E + para_unmap
-        print(line_command)
-        subprocess.call(line_command, shell=True)
-        print("samtools view -F " + flag + " -@ " + Threads+" -h " + outputfile[:-3] + 'Aligned.out.bam | samtools sort -n -O SAM > ' + outputfile)
-        subprocess.call("samtools view -F " + flag + " -@ " + Threads+" -h " + outputfile[:-3] + 'Aligned.out.bam | samtools sort -n -O SAM > ' + outputfile, shell=True)
-        subprocess.call("mv " + outputfile[:-3] + 'Unmapped.out.mate1 ' + unmapfastq, shell=True)
-        subprocess.call("rm -f " + outputfile[:-3] + 'Aligned.out.sam', shell=True)
-        subprocess.call("rm -f " + outputfile[:-3] + 'Aligned.out.bam', shell=True)
+        run_cmd(line_command)
+        run_cmd("samtools view -F " + flag + " -@ " + Threads+" -h " + outputfile[:-3] + "Aligned.out.bam " + 
+                "| samtools sort -n -O SAM > " + outputfile)
+        run_cmd("mv " + outputfile[:-3] + 'Unmapped.out.mate1 ' + unmapfastq)
+        run_cmd("rm -f " + outputfile[:-3] + 'Aligned.out.sam')
+        run_cmd("rm -f " + outputfile[:-3] + 'Aligned.out.bam')
     return outputfile, unmapfastq
 
 
 def getbamfiles(outputfile,fac,Threads,flag):
     output_bam = outputfile[:-4] + fac
-    print("samtools view -F " + flag + " -bS -@ " + Threads+" -h "+outputfile + \
-                    " | samtools sort > " + output_bam)
-    subprocess.call("samtools view -F " + flag + " -bS -@ " + Threads+" -h "+outputfile + \
-                    " | samtools sort > " + output_bam,shell=True)
-    subprocess.call("samtools index " + output_bam, shell=True)
-    subprocess.call("rm -f " + outputfile, shell=True)
+    run_cmd("samtools view -F " + flag + " -bS -@ " + Threads+" -h "+outputfile + 
+            " | samtools sort > " + output_bam)
+    run_cmd("samtools index " + output_bam)
+    run_cmd("rm -f " + outputfile)
     return output_bam
 
 
@@ -188,13 +185,13 @@ if __name__ == "__main__":
 
     if args.untreated:
         sys.stderr.write("[%s]untreated...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-        print("\n---- [%s] Mapping to genome " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+        print("\n---- [%s] Mapping to genome " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
         outputfile_untreated, unmapfastq = mapping_files(tools, fastq, reference, Threads, mismatch,
                                                         fqname2, outputdir2, mulMax,'4')
         untreated_bam = getbamfiles(outputfile_untreated,"_s.bam",Threads,'4')
         if args.combine:
             sys.stderr.write("[%s]untreated map to transcriptome...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-            print("\n---- [%s] Mapping to transcriptome " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            print("\n---- [%s] Mapping to transcriptome " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
             outputfile_untreated_unmap, _, = mapping_files('bowtie', unmapfastq,  transref, Threads,
                                                 mismatch,fqname2 + "_un", outputdir2, mulMax,'4')
             bamAG_unmap = getbamfiles(outputfile_untreated_unmap,"_s.bam", Threads,'4')
@@ -206,40 +203,37 @@ if __name__ == "__main__":
             pass
         else:
             sys.stderr.write("[%s] change to A>G...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-            print("\n---- [%s] Change A to G " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            print("\n---- [%s] Change A to G " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
             subprocess.call("rm -f " + changefastq + " " + output_bed + " 2>/dev/null",shell=True)
             cmd = 'awk -f ' + DUOdir + 'AtoG.awk changefastq="' + changefastq + '" ' + fastq + ' > ' + output_bed
-            print(cmd)
-            subprocess.call(cmd, shell = True)
+            run_cmd(cmd)
 
-            print("---- [%s] Sort bed " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            print("---- [%s] Sort bed " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
             sort_bedfiles(output_bed, output_bed + "_sorted")
-            subprocess.call("rm -f " + output_bed, shell=True)
+            run_cmd("rm -f " + output_bed)
 
         sys.stderr.write("[%s] map to genome...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-        print("\n---- [%s] Mapping to genome " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+        print("\n---- [%s] Mapping to genome " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
         outputfile_changeAG, unmapfastq = mapping_files(tools, changefastq, reference, Threads, mismatch,
                                                       fqname2, outputdir2,mulMax,'20')
-        print("---- [%s] Reverse G to A " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+        print("---- [%s] Reverse G to A " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
         reverse_samAG = outputfile_changeAG[:-4] + "_r.sam"
         cmd='awk -f '+ DUOdir + 'reverseGtoA.awk fbed="' + output_bed+'_sorted' + '" ' + outputfile_changeAG + ' > ' + reverse_samAG
-        print(cmd)
-        subprocess.call(cmd, shell = True)
-        subprocess.call("rm -f " + outputfile_changeAG, shell=True)
+        run_cmd(cmd)
+        run_cmd("rm -f " + outputfile_changeAG)
         reversed_bamAG = getbamfiles(reverse_samAG,'s.bam', Threads,'20')
 
         if args.rvs_fac:
             sys.stderr.write("[%s]map to reversegenome...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-            print("\n---- [%s] Mapping to reversegenome " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            print("\n---- [%s] Mapping to reversegenome " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
             rvsmapfastq = outputdir2 + fqname2 + "_un_2.fq"
             outputfile_changeAG_rvsmap, _, = mapping_files(tools, rvsmapfastq, rvsref, Threads, mismatch,
                                                           fqname2 + "_rvs", outputdir2, mulMax, '4')
-            print("---- [%s] Reverse G to A " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            print("---- [%s] Reverse G to A " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
             reverse_samAG_rvsmap = outputfile_changeAG_rvsmap[:-4] + "_r.sam"
             cmd='awk -f '+ DUOdir + 'reverseGtoA_rvs.awk fbed="' + output_bed+'_sorted' + '" ' + outputfile_changeAG_rvsmap + ' > ' + reverse_samAG_rvsmap
-            print(cmd)
-            subprocess.call(cmd, shell = True)
-            subprocess.call("rm -f " + outputfile_changeAG_rvsmap, shell=True)
+            run_cmd(cmd)
+            run_cmd("rm -f " + outputfile_changeAG_rvsmap)
             reversed_bamAG_rvsmap = getbamfiles(reverse_samAG_rvsmap, 's.bam', Threads, '4')
         else:
             pass
@@ -247,14 +241,12 @@ if __name__ == "__main__":
         if args.combine:
             unmapfastq = outputdir2 + fqname2 + "_rvs_un_2.fq"
             sys.stderr.write("[%s]map to transcriptome...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-            print("\n---- [%s] Mapping to transcriptome " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            print("\n---- [%s] Mapping to transcriptome " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
             outputfile_changeAG_unmap2, _, = mapping_files('bowtie', unmapfastq, transref, Threads, mismatch,
                                                           fqname2 + "_tf", outputdir2, mulMax,'20')
-            print("\n---- [%s] Reverse G to A " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-          
+            print("\n---- [%s] Reverse G to A " % strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
             reverse_samAG_unmap2 = outputfile_changeAG_unmap2[:-4] + "_r.sam"
             cmd='awk -f '+ DUOdir + 'reverseGtoA.awk fbed="' + output_bed+'_sorted' + '" ' + outputfile_changeAG_unmap2 + ' > ' + reverse_samAG_unmap2
-            print(cmd)
-            subprocess.call(cmd, shell = True)
-            subprocess.call("rm -f " + outputfile_changeAG_unmap2, shell=True)
+            run_cmd(cmd)
+            run_cmd("rm -f " + outputfile_changeAG_unmap2)
             reversed_bamAG_unmap2 = getbamfiles(reverse_samAG_unmap2, 's.bam', Threads,'20')
