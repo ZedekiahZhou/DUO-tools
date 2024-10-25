@@ -4,9 +4,8 @@ Author: Zhe Zhou, Peking University, Yi lab
 Date: May 24, 2024
 Email: zzhou24@pku.edu.cn
 Program: This program is used for DUO-seq analysis
-Version: 1.0.0
+Version: 1.0.1
 ToDo: 
-    1. m6A支持不去tag
     2. m6A样本的所有点信息？怎么和merge结合
 """
 
@@ -35,13 +34,16 @@ group_preprocessing = parser.add_argument_group("Preprocessing")
 group_preprocessing.add_argument("--umi5", dest="umi5", type=int, default=0, 
                                  help="length of bases to removed from 5 prime of the reads, default is 0")
 group_preprocessing.add_argument("--umi3", dest="umi3", type=int, default=0, 
-                                 help="length of bases to removed from 5 prime of the reads, default is 0")
+                                 help="length of bases to removed from 3 prime of the reads, default is 0")
+group_preprocessing.add_argument("--nextseq", action="store_true", 
+                                 help="NextSeq-specific quality trimming (each read). Trims also dark cycles appearing as high-quality G bases.")
 group_preprocessing.add_argument("-m", "--min_len", type=int, default=25, 
                                  help="discard reads that bacame shorter than min_len before mapping")
 group_preprocessing.add_argument("--fastqc", dest="fastqc", type=bool, default=True, 
                                  help="whether to run fastqc, default is True")
 group_preprocessing.add_argument("--tag_seq", dest="tag_seq", type=str, default="TGACGCTGCCGACGATC", 
-                                 help="tag sequence ligated to 5' ends of TSS, default is TGACGCTGCCGACGATC")
+                                 help="tag sequence ligated to 5' ends of TSS, default is TGACGCTGCCGACGATC. \
+                                    Skip tag removal if set to 'none'.")
 
 group_mapping = parser.add_argument_group("Mapping")
 group_mapping.add_argument("-f", "--reference", nargs="?", help="Index file for the plus strand of the genome")
@@ -105,8 +107,12 @@ def fun_pre(raw_fq, prx, args):
 
     # trim adapter
     cutoff_len1=args.umi5+args.umi3
-    run_cmd("trim_galore -q 20 -j 7 --stringency 1 -e 0.3 --length " + str(cutoff_len1) + 
-            " -o " + clean_dir + " " + raw_fq)
+    if args.nextseq:
+        run_cmd("trim_galore --nextseq 20 -j 7 --stringency 1 -e 0.3 --length " + str(cutoff_len1) + 
+                " -o " + clean_dir + " " + raw_fq)
+    else:
+        run_cmd("trim_galore -q 20 -j 7 --stringency 1 -e 0.3 --length " + str(cutoff_len1) + 
+                " -o " + clean_dir + " " + raw_fq)
 
     tmpfile=clean_dir + re.match(".+/([^/]+).f(ast)?q(.gz)?$", raw_fq).group(1) + "_trimmed.fq.gz"
     trimmed_fq=clean_dir + prx + "_trimmed.fq.gz"
@@ -120,11 +126,14 @@ def fun_pre(raw_fq, prx, args):
     # remove tag
     clean_fq=clean_dir + prx + "_clean.fq"
     tag_info=clean_dir + prx + "_rmtag.info"
-    cmd='cutadapt -j 0 -g "' + args.tag_seq + ';rightmost" -m ' + str(args.min_len) + \
-        ' -O ' + str(len(args.tag_seq)) + ' -e 0.2 -o ' + clean_fq + ' --info-file ' + tag_info + ' ' + rmdup_fq
-    if args.mode == "m6Am":
-        cmd = cmd + ' --discard-untrimmed'
-    run_cmd(cmd)
+    if args.tag_seq.lower() == "none":
+        run_cmd("gunzip -c " + rmdup_fq + " > " + clean_fq)    
+    else:
+        cmd='cutadapt -j 0 -g "' + args.tag_seq + ';rightmost" -m ' + str(args.min_len) + \
+            ' -O ' + str(len(args.tag_seq)) + ' -e 0.2 -o ' + clean_fq + ' --info-file ' + tag_info + ' ' + rmdup_fq
+        if args.mode == "m6Am":
+            cmd = cmd + ' --discard-untrimmed'
+        run_cmd(cmd)
     
     if args.fastqc:
         run_cmd("fastqc "+ clean_fq + " --thread " + str(args.threads) + " -q -o " + args.outdir +"/fastqc/clean")

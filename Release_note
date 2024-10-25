@@ -1,0 +1,5 @@
+Version: 1.0.1
+Date: 2024-10-24
+
+- provide argument '--nextseq'
+- allow skipping tag removal step
