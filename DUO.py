@@ -6,6 +6,7 @@ Email: zzhou24@pku.edu.cn
 Program: This program is used for DUO-seq analysis
 Version: 1.0.1
 ToDo: 
+    1. 最后一步call m6A可以考虑从拆分formatted_mpi开始， 而非referbase.mpi开始
     2. m6A样本的所有点信息？怎么和merge结合
 """
 

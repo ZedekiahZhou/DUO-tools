@@ -135,7 +135,7 @@ def mapping_files(tool,fastq,reference,Threads,muta_N,fqname,outputdir,mulMax,fl
                 " | samtools sort -n -O SAM > " + outputfile + "_sorted.sam")
         run_cmd("mv -f " + outputfile + "_sorted.sam " + outputfile)
     elif tool == "STAR":
-        para_0 = "STAR --runThreadN "+ Threads
+        para_0 = "STAR --runThreadN "+ Threads + " --readNameSeparator ' '"
         para_g = " --genomeDir "+ reference[:-3]
         para_A = " --limitOutSJcollapsed 5000000 "
         para_B = " --outFilterMismatchNmax " + str(muta_N)
