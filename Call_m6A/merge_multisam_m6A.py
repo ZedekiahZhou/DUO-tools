@@ -4,10 +4,12 @@ Author: Zhe Zhou, Peking University, Yi lab
 Date: Dec 27, 2024
 Email: zzhou24@pku.edu.cn
 Program: Merge and filter m6A sites from multiple samples
+used polars version: 0.20.25 --> 1.5.0
 """
 
 import argparse, re, time
 import polars as pl
+from pathlib import Path
 
 parser = argparse.ArgumentParser(description="Merge and filter m6A sites from multiple samples")
 parser.add_argument("-i", "--inputs", type=str, nargs='+', required=True, 
@@ -15,16 +17,16 @@ parser.add_argument("-i", "--inputs", type=str, nargs='+', required=True,
 parser.add_argument("--prx", type=str, nargs='+', 
                     help="columns names (usually sample names) to used for each input")
 parser.add_argument("-o", "--output", type=str, required=True, help="output file name")
-parser.add_argument("-c", "--AGcov", type=int, default=0, 
-                    help='minimum A+G coverage for TSS (default: 0; suggested: 15)')
-parser.add_argument("-C", "--Acov", type=int, default=0, 
-                    help='minimum A coverage for m6Am sites (default: 0; suggested: 5')
-parser.add_argument("-s", "--Signal_Ratio", type=float, default=0, 
-                    help="minimum ratio of signal reads (eg. reads with unconverted As less than 3) (default: 0; suggested: 0.8")
-parser.add_argument("-r", "--methyl_Ratio", type = float, default=0, 
-                    help="minimum m6A level (default: 0; suggested: 0.1")
-parser.add_argument("-adp", "--FDR", type=float, default=0, 
-                    help="FDR cutoff, default: 0, suggested: 0.05")
+parser.add_argument("-c", "--AGcov", type=int, default=15, 
+                    help='minimum A+G coverage for TSS (default: 15)')
+parser.add_argument("-C", "--Acov", type=int, default=5, 
+                    help='minimum A coverage for m6Am sites (default: 5)')
+parser.add_argument("-s", "--Signal_Ratio", type=float, default=0.8, 
+                    help="minimum ratio of signal reads (eg. reads with unconverted As less than 3) (default: 0.8)")
+parser.add_argument("-r", "--methyl_Ratio", type = float, default=0.1, 
+                    help="minimum m6A level (default: 0.1)")
+parser.add_argument("-adp", "--FDR", type=float, default=0.05, 
+                    help="FDR cutoff (default: 0.05)")
 parser.add_argument("--no_persample", action="store_true", help="do notwrite out passed sites for each sample")
 parser.add_argument("--skipStep1", action="store_true", 
                 help="skip Step1, the merged sites list \{output\}.used must exists!")
@@ -35,6 +37,7 @@ if args.prx is None:
     prx=[re.match("(.*/)?([^/]+).totalm6A.FDR.csv$", s).group(2) for s in args.inputs]
 else:
     prx=args.prx
+outdir = str(Path(args.output).parent)
 
 
 # I. read file and filter sites with enough AG coverage, get a merged sites list --------
@@ -62,7 +65,7 @@ if not args.skipStep1:
 
         # write out passed sites for each sample
         if not args.no_persample:
-            df.filter(pl.col("Passed")).write_csv(args.output[i] + ".passed", separator='\t')
+            df.filter(pl.col("Passed")).write_csv(outdir + "/" + prx[i] + ".m6A.passed", separator='\t')
 
         # global m6A ratio using A sites in each sample, respectively
         df = df.select(
@@ -93,10 +96,10 @@ if not args.skipStep1:
     df_merged = df_merged.rename({"Sites": "Pos"})
 
     # output merged list
-    df_merged.write_csv(args.output + ".used", separator='\t', null_values=".")
+    df_merged.write_csv(args.output + ".m6A.used", separator='\t', null_value=".")
     df_merged_stat.write_csv(args.output + ".stat.sep", separator='\t')
 else:
-    df_merged = pl.read_csv(args.output + ".used", separator='\t')
+    df_merged = pl.read_csv(args.output + ".m6A.used", separator='\t')
 
 # II. get passed sites with coverage info
 print("\n[%s] Step2: Get merged passed sites info ========" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
@@ -144,7 +147,7 @@ for i in range(len(args.inputs)):
     )
 
 
-df_passed.write_csv(args.output + ".passed", separator="\t", null_values=".")
+df_passed.write_csv(args.output + ".m6A.passed", separator="\t", null_value=".")
 df_merged_stat2.write_csv(args.output + ".stat.common", separator='\t')
 
 print("\n[%s] Done! ========" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)

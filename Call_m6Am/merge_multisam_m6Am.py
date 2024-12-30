@@ -5,16 +5,16 @@ Date: Dec 27, 2024
 Email: zzhou24@pku.edu.cn
 Program: Merge and filter m6A sites from multiple samples;
 Set all default parameters as not filtering sites
+used polars version: 0.20.25 --> 1.5.0
 """
 
 # write out per sample
 # merge replicates
-# 1. Passed_xx 后缀
-# 2. 每个样本单独输出
 # 3. 合并Replicates
 
 import argparse, re
 import polars as pl
+from pathlib import Path
 
 def str_to_float(value):
     try:
@@ -27,28 +27,29 @@ parser = argparse.ArgumentParser(description="Merge and filter TSS and m6Am site
 parser.add_argument("-i", "--inputs", type=str, nargs='+', required=True, 
                     help="Input files recording raw TSS sites (*_TSS_raw.bed.annotated.rmdup)")
 parser.add_argument("--untreated", action="store_true", 
-                          help="Untreated samaples (only merge and filter TSS)")
-parser.add_argument("--prx", type=str, nargs='+', help="columns names (usually sample names) to used for each input")
-parser.add_argument("-o", "--output", type=str, required=True, help="output file prefix")
-
-parser.add_argument("-c", "--AGcov", type=int, default=0, 
-                    help='minimum A+G coverage for TSS (default: 0; common value: 15)')
-parser.add_argument("--tpm", type=str_to_float, default=0, 
-                    help="minimum TPM value for TSS (default: 0; common value: 1.0)")
+                    help="Untreated samaples (only merge and filter TSS)")
+parser.add_argument("--prx", type=str, nargs='+', 
+                    help="columns names (usually sample names) to used for each input")
+parser.add_argument("-o", "--output", type=str, required=True, 
+                    help="output file prefix")
+parser.add_argument("-c", "--AGcov", type=int, default=15, 
+                    help='minimum A+G coverage for TSS (default: 15)')
+parser.add_argument("--tpm", type=str_to_float, default=0.5, 
+                    help="minimum TPM value for TSS (default: 0.5)")
 parser.add_argument("--absDist", type=str_to_float, default=float('inf'), 
-                    help="maximum absolute distance to any annotated TSS from GTF file (default: inf; common value: 1000)")
-parser.add_argument("--prop", type=float, default=0, 
-                    help="minimum proportion relative to the total TPM of a gene (default: 0; common value: 0.05)")
+                    help="maximum absolute distance to any annotated TSS from GTF file (default: inf)")
+parser.add_argument("--prop", type=float, default=0.05, 
+                    help="minimum proportion relative to the total TPM of a gene (default: 0.05)")
 parser.add_argument("--zscore", type=str_to_float, default=float('-inf'), 
-                    help="minimum Z-score (calculated within a gene) for TSS (default: -inf; common value: 1.0)")
-parser.add_argument("-C", "--Acov", type=int, default=0, 
-                    help='minimum A coverage for m6Am sites (default: 0; common value: 5)')
-parser.add_argument("-s", "--Signal_Ratio", type=float, default=0, 
-                    help="minimum ratio of signal reads, eg. reads with unconverted As less than 3 (default: 0; common value: 0.8)")
-parser.add_argument("-adp", "--FDR", type=float, default=1.1, 
-                    help="FDR cutoff (default: 1.1; common value: 0.05)")
-parser.add_argument("-R", "--AG_Ratio", type=float, default=0, 
-                    help="minimum ratio of (A+G reads)/total in this sites (default: 0; common value: 0.8)")
+                    help="minimum Z-score (calculated within a gene) for TSS (default: -inf)")
+parser.add_argument("-C", "--Acov", type=int, default=5, 
+                    help='minimum A coverage for m6Am sites (default: 5)')
+parser.add_argument("-s", "--Signal_Ratio", type=float, default=0.8, 
+                    help="minimum ratio of signal reads, eg. reads with unconverted As less than 3 (default: 0.8)")
+parser.add_argument("-adp", "--FDR", type=float, default=0.05, 
+                    help="FDR cutoff (default: 0.05)")
+parser.add_argument("-R", "--AG_Ratio", type=float, default=0.8, 
+                    help="minimum ratio of (A+G reads)/total in this sites (default: 0.8)")
 parser.add_argument("--no_persample", action="store_true", help="do notwrite out passed sites for each sample")
 args = parser.parse_args()
 
@@ -57,6 +58,8 @@ if args.prx is None:
     prx=[re.match("(.*/)?([^/]+)_TSS_raw.bed.annotated.rmdup$", s).group(2) for s in args.inputs]
 else:
     prx=args.prx
+
+outdir = str(Path(args.output).parent)
 
 # I. merge TSS sites
 # read and merge file, keep sites passed in any file
@@ -77,7 +80,7 @@ for i in range(len(args.inputs)):
 
     # write out passed tss for each sample
     if not args.no_persample:
-        tss.filter(pl.col("Passed")).write_csv(args.output[i] + ".TSS.passed", separator='\t')
+        tss.filter(pl.col("Passed")).write_csv(outdir + "/" + prx[i] + ".TSS.passed", separator='\t')
 
     # outer join all
     tss = tss.select(
@@ -96,8 +99,8 @@ for i in range(len(args.inputs)):
         )
 
 # Keep sites passed in any sample
+tss_merged = tss_merged.rename({"End": "Pos"})
 tss_merged = tss_merged.fill_null(False).with_columns(
-    pl.col("End").alias("Pos"),
     pl.fold(acc=pl.lit(False), function=lambda acc, x: acc | x, exprs=pl.col("^Passed_.*$")).alias("Passed")
 ).filter(
     pl.col("Passed")
@@ -141,7 +144,7 @@ if not args.untreated:
 
         # write out passed tss for each sample !!!!!
         if not args.no_persample:
-            m6Am.filter(pl.col("Passed")).write_csv(args.output[i] + ".m6Am.passed", separator='\t')
+            m6Am.filter(pl.col("Passed")).write_csv(outdir + "/" + prx[i] +".m6Am.passed", separator='\t')
 
         # outer join all
         m6Am = m6Am.rename({"AGcov": "AGcov_"+prx[i], 
@@ -162,4 +165,4 @@ if not args.untreated:
         pl.col("Passed")
     ).sort(["Chr", "Pos"])
 
-    m6Am_merged.write_csv(args.output + "m6Am.passed" , separator='\t', null_value=".")
+    m6Am_merged.write_csv(args.output + ".m6Am.passed" , separator='\t', null_value=".")

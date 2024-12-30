@@ -12,8 +12,10 @@ import argparse, re, time
 import polars as pl
 
 parser = argparse.ArgumentParser(description="Merge and filter m6A sites from multiple samples")
-parser.add_argument("-i", "--inputs", type=str, nargs='+', required=True, help="Input files recording m6A sites (*totalm6A.FDR.csv)")
-parser.add_argument("-o", "--output", type=str, required=True, help="output file name")
+parser.add_argument("-i", "--inputs", type=str, nargs='+', required=True, 
+                    help="Input files recording m6A sites (*totalm6A.FDR.csv)")
+parser.add_argument("-o", "--output", type=str, required=True, 
+                    help="output file prefix, output file will be named as prefix.totalm6A.FDR.csv")
 args = parser.parse_args()
 
 
@@ -27,7 +29,7 @@ for i in range(len(args.inputs)):
     if "Signal_Ratio" not in df.columns:
         df = df.with_columns(pl.lit(1).alias("Signal_Ratio"))
 
-    # outer join samples
+    # outer join samples, Ratio not updated
     if i == 0:
         df_merged = df
         used_cols = df.columns
@@ -45,9 +47,10 @@ for i in range(len(args.inputs)):
             Signal_Ratio=pl.mean_horizontal("Signal_Ratio", "Signal_Ratio_right"),
             Pvalue=pl.min_horizontal("Pvalue", "Pvalue_right"),
             P_adjust=pl.min_horizontal("P_adjust", "P_adjust_right"),
-        ).with_columns(
-            Ratio=pl.col("Acov") / pl.col("AGcov")
         ).select(used_cols)
 
-    df_merged = df_merged.sort(["Chr", "Sites"])
-    df_merged.write_csv(args.output, separator="\t")
+df_merged = df_merged.with_columns(
+    Ratio=(pl.col("Acov") / pl.col("AGcov")).round(3)
+).select(used_cols)
+df_merged = df_merged.sort(["Chr", "Sites"])
+df_merged.write_csv(args.output+".totalm6A.FDR.csv", separator="\t", null_value=".")
