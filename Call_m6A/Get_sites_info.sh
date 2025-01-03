@@ -12,7 +12,7 @@ cat $1 | awk -v OFS='\t' 'NR>1 {print $1, $2-1, $2, $4, 0, $3}' > "$1".bed
 perl ${metaPlotR_dir}/annotate_bed_file.pl --bed "$1".bed --bed2 ${annot_prx}_annot.sorted.bed > "$1"_annot.bed
 perl ${metaPlotR_dir}/rel_and_abs_dist_calc.pl --bed "$1"_annot.bed --regions ${annot_prx}_region_sizes.txt > "$1"_dist.measures.txt
 rm -rf "$1".bed "$1"_annot.bed
-source activate zzhou_bio
+source activate zzhou_bio2
 
 # 03. get 5 bases around m6A sites
 echo -e "\n[ $(date) ]: Get 5 bases around sites --------"

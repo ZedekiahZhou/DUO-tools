@@ -20,6 +20,7 @@ args = parser.parse_args()
 
 
 # read and merge data --------
+print("[%s] Pooling replicates ========" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
 for i in range(len(args.inputs)):
     print("\t[%s] Read sample %s ========" % 
         (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), args.inputs[i]), 
