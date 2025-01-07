@@ -205,8 +205,8 @@ if __name__ == "__main__":
     try:
         for item in RefBins:
             bin_chr, bin_start, bin_end = item
-            bin_df = df.filter((pl.col("Chr") == bin_chr) & (pl.col("Pos") >= bin_start) & 
-                               (pl.col("Pos") < bin_end))
+            bin_df = df.filter((pl.col("Chr") == bin_chr) & (pl.col("Pos") > bin_start) & 
+                               (pl.col("Pos") <= bin_end)) # Pos is 1-based, bin is 0-based
             async_result = pool.apply_async(pileup_bin, args=(bin_chr, bin_start, bin_end, bin_df))
             async_results.append(async_result)
 
