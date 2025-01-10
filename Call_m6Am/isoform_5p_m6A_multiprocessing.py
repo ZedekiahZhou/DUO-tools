@@ -23,8 +23,8 @@ class NextPos(dict):
     
 def pileup_bin(bin_chr, bin_start, bin_end, bin_df):
     global options
-    # print("[%s] Pileup bin %s:%d-%d" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), 
-    #                                     bin_chr, bin_start, bin_end), flush=True)
+    print("[%s] Pileup bin %s:%d-%d" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), 
+                                        bin_chr, bin_start, bin_end), flush=True)
     if bin_df.shape[0] == 0:
         return None
     else:
@@ -115,13 +115,13 @@ if __name__ == "__main__":
     group_required.add_argument("-o","--output", dest="output",required=True,help="output")
     # Optional
     group_optional = parser.add_argument_group("Optional")
-    group_optional.add_argument("-w", "--window", dest="window_size", default=100,
+    group_optional.add_argument("-w", "--window", dest="window_size", type=int, default=100,
                                 help="downstream window size to count unconverted As (as control), default=100.")
-    group_optional.add_argument("-s", "--step", dest="step_size", default=100000, 
+    group_optional.add_argument("-s", "--step", dest="step_size", type=int, default=500000, 
                                 help="step size to process bam file, default=100000.")
-    group_optional.add_argument("-p", "--processes", dest="processes", default=1,  
-                                help="number of processes to use, default=1.")
-    group_optional.add_argument("--maxAs", dest="max_allowed_As", default=3,
+    group_optional.add_argument("-p", "--processes", dest="processes", type=int, default=4,  
+                                help="number of processes to use, default=4.")
+    group_optional.add_argument("--maxAs", dest="max_allowed_As", type=int, default=3,
                             help="maximum allowed number of As in reads to be count as signal ones, default=3")
     options = parser.parse_args()
 
@@ -198,7 +198,7 @@ if __name__ == "__main__":
 
     # Step II: Pileup 
     print("------ [%s] Pileup 5p ends of reads ..." % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
-    pool = multiprocessing.Pool(processes=len(options.processes))
+    pool = multiprocessing.Pool(processes=options.processes)
 
     async_results = []
     t1=time.time()
@@ -211,7 +211,8 @@ if __name__ == "__main__":
             async_results.append(async_result)
 
         pool.close()
-        print("------ [%s] Run multiprocessing ..." % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
+        print("------ [%s] Run multiprocessing using [%s] cores ..." % 
+              (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), str(options.processes)), flush=True)
         pool.join()
         print("------ [%s] Join results ..." % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)
     finally:

@@ -68,12 +68,13 @@ for i in range(len(args.inputs)):
     print("Read sample " + prx[i], flush=True)
 
     # read file and filter sites
-    tss = pl.read_csv(args.inputs[i], separator="\t", null_values=".")
+    tss = pl.read_csv(args.inputs[i], separator="\t", null_values=".", infer_schema_length = 500)
     tss = tss.fill_null(".").with_columns(
         pl.col("absDist").fill_null(float('inf')),
         pl.col("Dist").fill_null(float('inf')),
         pl.col("relSum").fill_null(0),
-        pl.col("zscore").fill_null('-inf'),
+        pl.col("zscore").fill_null(float('-inf'))
+    ).with_columns(
         ((pl.col("Counts") >= args.AGcov) & (pl.col("TPM") >= args.tpm) & (pl.col("absDist") <= args.absDist) & \
         (pl.col("relSum") >= args.prop) & (pl.col("zscore") >= args.zscore)).alias("Passed")
     )
@@ -84,7 +85,7 @@ for i in range(len(args.inputs)):
 
     # outer join all
     tss = tss.select(
-        pl.col("Chr", "End", "Strand", "Base", "geneID", "txID", "Dist", "txBiotype"),
+        pl.col("Chr", "End", "Strand", "Base", "geneID", "txID", "txBiotype", "Dist"),
         pl.col("Counts").alias("Counts_"+prx[i]),
         pl.col("TPM").alias("TPM_"+prx[i]),
         pl.col("Passed").alias("Passed_"+prx[i])
@@ -95,7 +96,7 @@ for i in range(len(args.inputs)):
     else:
         tss_merged = tss_merged.join(
             tss,
-            on=["Chr", "End", "Strand", "Base", "geneID", "txID", "Dist", "txBiotype"], how="full", coalesce=True
+            on=["Chr", "End", "Strand", "Base", "geneID", "txID", "txBiotype", "Dist"], how="full", coalesce=True
         )
 
 # Keep sites passed in any sample
@@ -117,7 +118,7 @@ if not args.untreated:
 
         m6Am = pl.read_csv(
             args.inputs[i].replace("_TSS_raw.bed.annotated.rmdup", "_m6Am_sites_raw.tsv"), 
-            separator="\t", null_values="."
+            separator="\t", null_values=".", infer_schema_length = 500
         )
         if "Signal_Ratio" not in m6Am.columns:
             m6Am = m6Am.with_columns(pl.lit(1).alias("Signal_Ratio"))
@@ -134,7 +135,7 @@ if not args.untreated:
         ).select(
             pl.col("Chr", "Pos", "Strand"),
             pl.col("Ref_base").alias("Base"),
-            pl.col("geneID", "txID", "Dist", "txBiotype"),
+            pl.col("geneID", "txID", "txBiotype", "Dist"),
             pl.col("AG_cov").alias("AGcov"),
             pl.col("A").alias("Acov"),
             ((pl.col("Passed_"+prx[i])) & (pl.col("AG_cov") >= args.AGcov) & (pl.col("A") >= args.Acov) & \
@@ -155,7 +156,7 @@ if not args.untreated:
         else:
             m6Am_merged = m6Am_merged.join(
                 m6Am,
-                on=["Chr", "Pos", "Strand", "Base", "geneID", "txID", "Dist", "txBiotype"], how="full", coalesce=True
+                on=["Chr", "Pos", "Strand", "Base", "geneID", "txID", "txBiotype", "Dist"], how="full", coalesce=True
             )
 
     # Keep sites passed in any sample

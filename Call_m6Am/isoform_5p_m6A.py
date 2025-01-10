@@ -33,9 +33,9 @@ if __name__ == "__main__":
     group_required.add_argument("-o","--output", dest="output",required=True,help="output")
     # Optional
     group_optional = parser.add_argument_group("Optional")
-    group_optional.add_argument("-w", "--window", dest="window_size", default=100,
+    group_optional.add_argument("-w", "--window", type=int, dest="window_size", default=100,
                                 help="downstream window size to count unconverted As (as control), default=100.")
-    group_optional.add_argument("--maxAs", dest="max_allowed_As", default=3,
+    group_optional.add_argument("--maxAs", dest="max_allowed_As", type=int, default=3,
                             help="maximum allowed number of As in reads to be count as signal ones, default=3")
     options = parser.parse_args()
 
