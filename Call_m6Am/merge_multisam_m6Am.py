@@ -38,8 +38,8 @@ parser.add_argument("--tpm", type=str_to_float, default=0.5,
                     help="minimum TPM value for TSS (default: 0.5)")
 parser.add_argument("--absDist", type=str_to_float, default=float('inf'), 
                     help="maximum absolute distance to any annotated TSS from GTF file (default: inf)")
-parser.add_argument("--prop", type=float, default=0.05, 
-                    help="minimum proportion relative to the total TPM of a gene (default: 0.05)")
+parser.add_argument("--prop", type=float, default=0, 
+                    help="minimum proportion relative to the total TPM of a gene (default: 0)")
 parser.add_argument("--zscore", type=str_to_float, default=float('-inf'), 
                     help="minimum Z-score (calculated within a gene) for TSS (default: -inf)")
 parser.add_argument("-C", "--Acov", type=int, default=5, 
@@ -60,16 +60,20 @@ else:
     prx=args.prx
 
 outdir = str(Path(args.output).parent)
+outprx = str(Path(args.output).name)
 
 # I. merge TSS sites
 # read and merge file, keep sites passed in any file
 print("Merge TSS sites: ", flush=True)
+info_col = ["Chr", "Pos", "Strand", "Base", "geneID", "txID", "txBiotype", "Dist"]
+data_col = ["Counts",  "TPM", "raw_totalTPM", "raw_nTSS", "meanTPM", "stdTPM", "relSum", "zscore"]
 for i in range(len(args.inputs)):
     print("Read sample " + prx[i], flush=True)
 
     # read file and filter sites
     tss = pl.read_csv(args.inputs[i], separator="\t", null_values=".", infer_schema_length = 500)
     tss = tss.fill_null(".").with_columns(
+        pl.col("End").alias("Pos"),
         pl.col("absDist").fill_null(float('inf')),
         pl.col("Dist").fill_null(float('inf')),
         pl.col("relSum").fill_null(0),
@@ -81,11 +85,13 @@ for i in range(len(args.inputs)):
 
     # write out passed tss for each sample
     if not args.no_persample:
-        tss.filter(pl.col("Passed")).write_csv(outdir + "/" + prx[i] + ".TSS.passed", separator='\t')
+        tss.select(
+            pl.col(info_col+data_col+["Passed"])
+        ).filter(pl.col("Passed")).write_csv(outdir + "/" + prx[i] + "_" + outprx + ".TSS.passed", separator='\t')
 
     # outer join all
     tss = tss.select(
-        pl.col("Chr", "End", "Strand", "Base", "geneID", "txID", "txBiotype", "Dist"),
+        pl.col(info_col),
         pl.col("Counts").alias("Counts_"+prx[i]),
         pl.col("TPM").alias("TPM_"+prx[i]),
         pl.col("Passed").alias("Passed_"+prx[i])
@@ -96,11 +102,10 @@ for i in range(len(args.inputs)):
     else:
         tss_merged = tss_merged.join(
             tss,
-            on=["Chr", "End", "Strand", "Base", "geneID", "txID", "txBiotype", "Dist"], how="full", coalesce=True
+            on=info_col, how="full", coalesce=True
         )
 
 # Keep sites passed in any sample
-tss_merged = tss_merged.rename({"End": "Pos"})
 tss_merged = tss_merged.fill_null(False).with_columns(
     pl.fold(acc=pl.lit(False), function=lambda acc, x: acc | x, exprs=pl.col("^Passed_.*$")).alias("Passed")
 ).filter(
@@ -145,7 +150,7 @@ if not args.untreated:
 
         # write out passed tss for each sample !!!!!
         if not args.no_persample:
-            m6Am.filter(pl.col("Passed")).write_csv(outdir + "/" + prx[i] +".m6Am.passed", separator='\t')
+            m6Am.filter(pl.col("Passed")).write_csv(outdir + "/" + prx[i] + "_" + outprx + ".m6Am.passed", separator='\t')
 
         # outer join all
         m6Am = m6Am.rename({"AGcov": "AGcov_"+prx[i], 
@@ -156,7 +161,7 @@ if not args.untreated:
         else:
             m6Am_merged = m6Am_merged.join(
                 m6Am,
-                on=["Chr", "Pos", "Strand", "Base", "geneID", "txID", "txBiotype", "Dist"], how="full", coalesce=True
+                on=[info_col], how="full", coalesce=True
             )
 
     # Keep sites passed in any sample

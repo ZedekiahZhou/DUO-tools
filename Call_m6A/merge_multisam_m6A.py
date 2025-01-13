@@ -38,6 +38,7 @@ if args.prx is None:
 else:
     prx=args.prx
 outdir = str(Path(args.output).parent)
+outprx = str(Path(args.output).name)
 
 
 # I. read file and filter sites with enough AG coverage, get a merged sites list --------
@@ -65,7 +66,7 @@ if not args.skipStep1:
 
         # write out passed sites for each sample
         if not args.no_persample:
-            df.filter(pl.col("Passed")).write_csv(outdir + "/" + prx[i] + ".m6A.passed", separator='\t')
+            df.filter(pl.col("Passed")).write_csv(outdir + "/" + prx[i] + "_" + outprx + ".m6A.passed", separator='\t')
 
         # global m6A ratio using A sites in each sample, respectively
         df = df.select(

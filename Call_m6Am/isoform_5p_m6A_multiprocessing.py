@@ -31,9 +31,11 @@ def pileup_bin(bin_chr, bin_start, bin_end, bin_df):
         res = {}
         for row in bin_df.iter_rows():
             ID = (row[0], row[1], row[2])
-            res[ID] = {"Chr": row[0], "Pos": row[1], "Strand": row[2], "Ref_base": row[3], "Counts": row[4], "TPM": row[5], 
-                          "geneID": row[6], "txID": row[7], "txBiotype": row[8], "Dist": row[9],
-                          "A": 0, "T": 0, "C": 0, "G": 0}
+            res[ID] = {"Chr": row[0], "Pos": row[1], "Strand": row[2], "Ref_base": row[3],  
+                       "geneID": row[4], "txID": row[5], "txBiotype": row[6], "Dist": row[7],
+                       "Counts": row[8], "TPM": row[9], 
+                       "A": 0, "T": 0, "C": 0, "G": 0}
+            
             res[ID]["Next_pos"] = {} # a dict of next pos
             for next_pos in row[10]:
                 res[ID]["Next_pos"][next_pos] = NextPos()
@@ -148,8 +150,9 @@ if __name__ == "__main__":
             pos = int(pos)
             ID = (chr, pos, strand)
 
-            tss[ID] = {"Chr": chr, "Pos": pos, "Strand": strand, "Ref_base": base, "Counts": line[9], "TPM": line[10], 
-                          "geneID": line[4], "txID": line[5], "txBiotype": line[6], "Dist": line[7]}
+            tss[ID] = {"Chr": chr, "Pos": pos, "Strand": strand, "Ref_base": base,
+                       "geneID": line[4], "txID": line[5], "txBiotype": line[6], "Dist": line[7], 
+                       "Counts": line[8], "TPM": line[9]}
     
     ## find downstream A sites
     print("------ [%s] Finding downstream A sites ..." % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), flush=True)

@@ -64,8 +64,9 @@ if __name__ == "__main__":
             pos = int(pos)
             ID = (chr, pos, strand)
 
-            output[ID] = {"Chr": chr, "Pos": pos, "Strand": strand, "Ref_base": base, "Counts": line[9], "TPM": line[10], 
-                          "geneID": line[4], "txID": line[5], "txBiotype": line[6], "Dist": line[7],
+            output[ID] = {"Chr": chr, "Pos": pos, "Strand": strand, "Ref_base": base,
+                          "geneID": line[4], "txID": line[5], "txBiotype": line[6], "Dist": line[7], 
+                          "Counts": line[8], "TPM": line[9],
                           "A": 0, "T": 0, "C": 0, "G": 0}
     
     ## find downstream A sites
